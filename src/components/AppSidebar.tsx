@@ -111,10 +111,10 @@ function Item({
   label,
   exact,
 }: {
-  to: "/" | "/dashboard" | "/export" | "/audit"
-  icon: Icon
-  label: string
-  exact?: boolean
+  to: "/" | "/dashboard" | "/export" | "/audit";
+  icon: Icon;
+  label: string;
+  exact?: boolean;
 }) {
   return (
     <Link
@@ -141,11 +141,11 @@ function ProjectItem({
     | "/p/$projectId/tasks"
     | "/p/$projectId/review"
     | "/p/$projectId/progress"
-    | "/p/$projectId/setup"
-  projectId: string
-  icon: Icon
-  label: string
-  exact?: boolean
+    | "/p/$projectId/setup";
+  projectId: string;
+  icon: Icon;
+  label: string;
+  exact?: boolean;
 }) {
   return (
     <Link

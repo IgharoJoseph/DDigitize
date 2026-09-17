@@ -121,15 +121,15 @@ export async function logActivity(
 }
 
 export type NewFeature = {
-  projectId: string
-  workAreaId: string | null
-  categoryId: string | null
-  datasetId: string | null
-  geometry: Geometry
-  attributes: Attributes
-  areaSqm: number
-  lengthM: number
-  createdBy: string
+  projectId: string;
+  workAreaId: string | null;
+  categoryId: string | null;
+  datasetId: string | null;
+  geometry: Geometry;
+  attributes: Attributes;
+  areaSqm: number;
+  lengthM: number;
+  createdBy: string;
 };
 
 type FeatureInsert = Database["public"]["Tables"]["features"]["Insert"];
@@ -152,14 +152,14 @@ export async function createFeature(input: NewFeature): Promise<FeatureRow> {
 }
 
 export type FeaturePatch = {
-  geometry?: Geometry
-  attributes?: Attributes
-  areaSqm?: number
-  lengthM?: number
-  status?: ReviewStatus
-  categoryId?: string | null
-  workAreaId?: string | null
-  reviewNote?: string | null
+  geometry?: Geometry;
+  attributes?: Attributes;
+  areaSqm?: number;
+  lengthM?: number;
+  status?: ReviewStatus;
+  categoryId?: string | null;
+  workAreaId?: string | null;
+  reviewNote?: string | null;
 };
 
 export async function updateFeature(id: string, patch: FeaturePatch): Promise<FeatureRow> {
@@ -203,10 +203,10 @@ export async function fetchComments(featureId: string): Promise<FeatureComment[]
 }
 
 export async function addComment(input: {
-  projectId: string
-  featureId: string
-  authorId: string
-  body: string
+  projectId: string;
+  featureId: string;
+  authorId: string;
+  body: string;
 }): Promise<FeatureComment> {
   return unwrap(
     await supabase

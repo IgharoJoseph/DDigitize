@@ -11,13 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  createProject,
-  fetchMyMemberships,
-  fetchProjects,
-  pk,
-  type Project,
-} from "@/lib/projects";
+import { createProject, fetchMyMemberships, fetchProjects, pk, type Project } from "@/lib/projects";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -95,9 +89,7 @@ function ProjectsPage() {
   }
 
   const roleFor = (project: Project) =>
-    isAdmin
-      ? "admin"
-      : (memberships.find((row) => row.project_id === project.id)?.role ?? null);
+    isAdmin ? "admin" : (memberships.find((row) => row.project_id === project.id)?.role ?? null);
 
   return (
     <div className="flex-1 overflow-y-auto bg-background">

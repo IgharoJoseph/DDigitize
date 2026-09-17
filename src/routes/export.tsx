@@ -15,13 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  REVIEW_STATUSES,
-  fetchCategories,
-  fetchFeatures,
-  fetchProfiles,
-  qk,
-} from "@/lib/data";
+import { REVIEW_STATUSES, fetchCategories, fetchFeatures, fetchProfiles, qk } from "@/lib/data";
 import { downloadShapefile, downloadText, toCsv, toGeoJson, toKml } from "@/lib/exporters";
 import { fetchProjects, pk } from "@/lib/projects";
 

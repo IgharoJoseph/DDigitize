@@ -175,9 +175,8 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   // Approved features are locked for everyone but reviewers.
   const canEditSelected = Boolean(
     selected &&
-      user &&
-      (access.canReview ||
-        (selected.created_by === user.id && selected.status !== "verified")),
+    user &&
+    (access.canReview || (selected.created_by === user.id && selected.status !== "verified")),
   );
 
   const invalidateFeatures = useCallback(() => {
@@ -278,106 +277,112 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
 
-
     // styledata can fire before the style is fully parsed, and MapLibre throws
     // "Style is not done loading" from addSource. The retry happens on the next
     // styledata/idle event, so swallowing it here is safe.
     try {
-    if (dataset && !map.getSource(IMAGERY_SOURCE)) {
-      const bounds = safeBounds(dataset.bounds);
-      map.addSource(IMAGERY_SOURCE, {
-        type: "raster",
-        url: `pmtiles://${dataset.url}`,
-        tileSize: 512,
-        minzoom: dataset.min_zoom ?? 0,
-        maxzoom: dataset.max_zoom ?? 22,
-        ...(bounds
-          ? { bounds: [bounds.west, bounds.south, bounds.east, bounds.north] as [number, number, number, number] }
-          : {}),
-      });
-      map.addLayer({
-        id: IMAGERY_LAYER,
-        type: "raster",
-        source: IMAGERY_SOURCE,
-        paint: { "raster-opacity": opacity, "raster-resampling": "nearest" },
-        layout: { visibility: imageryVisible ? "visible" : "none" },
-      });
-    }
+      if (dataset && !map.getSource(IMAGERY_SOURCE)) {
+        const bounds = safeBounds(dataset.bounds);
+        map.addSource(IMAGERY_SOURCE, {
+          type: "raster",
+          url: `pmtiles://${dataset.url}`,
+          tileSize: 512,
+          minzoom: dataset.min_zoom ?? 0,
+          maxzoom: dataset.max_zoom ?? 22,
+          ...(bounds
+            ? {
+                bounds: [bounds.west, bounds.south, bounds.east, bounds.north] as [
+                  number,
+                  number,
+                  number,
+                  number,
+                ],
+              }
+            : {}),
+        });
+        map.addLayer({
+          id: IMAGERY_LAYER,
+          type: "raster",
+          source: IMAGERY_SOURCE,
+          paint: { "raster-opacity": opacity, "raster-resampling": "nearest" },
+          layout: { visibility: imageryVisible ? "visible" : "none" },
+        });
+      }
 
-    if (!map.getSource(AREA_SOURCE)) {
-      map.addSource(AREA_SOURCE, {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      map.addLayer({
-        id: "dt-area-fill",
-        type: "fill",
-        source: AREA_SOURCE,
-        paint: {
-          "fill-color": ["case", ["get", "mine"], "#14b8a6", "#0f172a"],
-          "fill-opacity": ["case", ["get", "mine"], 0.06, 0.35],
-        },
-      });
-      map.addLayer({
-        id: "dt-area-outline",
-        type: "line",
-        source: AREA_SOURCE,
-        paint: {
-          "line-color": ["case", ["get", "mine"], "#2dd4bf", "#64748b"],
-          "line-width": ["case", ["get", "mine"], 2.5, 1],
-          "line-dasharray": ["case", ["get", "mine"], ["literal", [1, 0]], ["literal", [2, 2]]],
-        },
-      });
-    }
+      if (!map.getSource(AREA_SOURCE)) {
+        map.addSource(AREA_SOURCE, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+        map.addLayer({
+          id: "dt-area-fill",
+          type: "fill",
+          source: AREA_SOURCE,
+          paint: {
+            "fill-color": ["case", ["get", "mine"], "#14b8a6", "#0f172a"],
+            "fill-opacity": ["case", ["get", "mine"], 0.06, 0.35],
+          },
+        });
+        map.addLayer({
+          id: "dt-area-outline",
+          type: "line",
+          source: AREA_SOURCE,
+          paint: {
+            "line-color": ["case", ["get", "mine"], "#2dd4bf", "#64748b"],
+            "line-width": ["case", ["get", "mine"], 2.5, 1],
+            "line-dasharray": ["case", ["get", "mine"], ["literal", [1, 0]], ["literal", [2, 2]]],
+          },
+        });
+      }
 
-    if (!map.getSource(FEATURE_SOURCE)) {
-      map.addSource(FEATURE_SOURCE, {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-      map.addLayer({
-        id: "dt-fill",
-        type: "fill",
-        source: FEATURE_SOURCE,
-        filter: ["==", ["geometry-type"], "Polygon"],
-        paint: {
-          "fill-color": ["get", "color"],
-          "fill-opacity": ["case", ["get", "isSelected"], 0.45, 0.22],
-        },
-      });
-      map.addLayer({
-        id: "dt-outline",
-        type: "line",
-        source: FEATURE_SOURCE,
-        filter: ["==", ["geometry-type"], "Polygon"],
-        paint: {
-          "line-color": ["get", "color"],
-          "line-width": ["case", ["get", "isSelected"], 3, 1.5],
-        },
-      });
-      map.addLayer({
-        id: "dt-line",
-        type: "line",
-        source: FEATURE_SOURCE,
-        filter: ["==", ["geometry-type"], "LineString"],
-        paint: {
-          "line-color": ["get", "color"],
-          "line-width": ["case", ["get", "isSelected"], 5, 2.5],
-        },
-      });
-      map.addLayer({
-        id: "dt-point",
-        type: "circle",
-        source: FEATURE_SOURCE,
-        filter: ["==", ["geometry-type"], "Point"],
-        paint: {
-          "circle-color": ["get", "color"],
-          "circle-radius": ["case", ["get", "isSelected"], 8, 5],
-          "circle-stroke-width": 1.5,
-          "circle-stroke-color": "#ffffff",
-        },
-      });
-    }
+      if (!map.getSource(FEATURE_SOURCE)) {
+        map.addSource(FEATURE_SOURCE, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+        map.addLayer({
+          id: "dt-fill",
+          type: "fill",
+          source: FEATURE_SOURCE,
+          filter: ["==", ["geometry-type"], "Polygon"],
+          paint: {
+            "fill-color": ["get", "color"],
+            "fill-opacity": ["case", ["get", "isSelected"], 0.45, 0.22],
+          },
+        });
+        map.addLayer({
+          id: "dt-outline",
+          type: "line",
+          source: FEATURE_SOURCE,
+          filter: ["==", ["geometry-type"], "Polygon"],
+          paint: {
+            "line-color": ["get", "color"],
+            "line-width": ["case", ["get", "isSelected"], 3, 1.5],
+          },
+        });
+        map.addLayer({
+          id: "dt-line",
+          type: "line",
+          source: FEATURE_SOURCE,
+          filter: ["==", ["geometry-type"], "LineString"],
+          paint: {
+            "line-color": ["get", "color"],
+            "line-width": ["case", ["get", "isSelected"], 5, 2.5],
+          },
+        });
+        map.addLayer({
+          id: "dt-point",
+          type: "circle",
+          source: FEATURE_SOURCE,
+          filter: ["==", ["geometry-type"], "Point"],
+          paint: {
+            "circle-color": ["get", "color"],
+            "circle-radius": ["case", ["get", "isSelected"], 8, 5],
+            "circle-stroke-width": 1.5,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+      }
     } catch {
       /* retried on the next style event */
     }
@@ -640,12 +645,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
         lengthM: geometryLength(geometry),
         createdBy: user.id,
       });
-      await logActivity(
-        projectId,
-        "created",
-        `Digitized a ${category?.name ?? "feature"}`,
-        row.id,
-      );
+      await logActivity(projectId, "created", `Digitized a ${category?.name ?? "feature"}`, row.id);
       return row;
     },
     onSuccess: (row) => {
@@ -910,10 +910,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                   Digitizing as
                 </Label>
-                <Select
-                  value={drawCategoryId ?? ""}
-                  onValueChange={setDrawCategoryId}
-                >
+                <Select value={drawCategoryId ?? ""} onValueChange={setDrawCategoryId}>
                   <SelectTrigger className="mt-1.5 h-8 text-xs">
                     <SelectValue placeholder="Pick a category" />
                   </SelectTrigger>

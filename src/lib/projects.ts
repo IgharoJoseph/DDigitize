@@ -82,13 +82,15 @@ export async function fetchProjects(): Promise<Project[]> {
 }
 
 export async function fetchProject(projectId: string): Promise<Project | null> {
-  return unwrapNullable(await supabase.from("projects").select("*").eq("id", projectId).maybeSingle());
+  return unwrapNullable(
+    await supabase.from("projects").select("*").eq("id", projectId).maybeSingle(),
+  );
 }
 
 export async function createProject(input: {
-  name: string
-  description: string | null
-  createdBy: string
+  name: string;
+  description: string | null;
+  createdBy: string;
 }): Promise<Project> {
   const project = unwrap(
     await supabase
@@ -98,14 +100,12 @@ export async function createProject(input: {
       .single(),
   );
   // The creator joins as manager so they can set the project up straight away.
-  await supabase
-    .from("project_members")
-    .insert({
-      project_id: project.id,
-      user_id: input.createdBy,
-      role: "manager",
-      added_by: input.createdBy,
-    });
+  await supabase.from("project_members").insert({
+    project_id: project.id,
+    user_id: input.createdBy,
+    role: "manager",
+    added_by: input.createdBy,
+  });
   return project;
 }
 
@@ -126,24 +126,20 @@ export async function deleteProject(projectId: string) {
 /* -------------------------------- members -------------------------------- */
 
 export async function fetchMembers(projectId: string): Promise<ProjectMember[]> {
-  return unwrap(
-    await supabase.from("project_members").select("*").eq("project_id", projectId),
-  );
+  return unwrap(await supabase.from("project_members").select("*").eq("project_id", projectId));
 }
 
 export async function fetchMyMemberships(): Promise<ProjectMember[]> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return [];
-  return unwrap(
-    await supabase.from("project_members").select("*").eq("user_id", auth.user.id),
-  );
+  return unwrap(await supabase.from("project_members").select("*").eq("user_id", auth.user.id));
 }
 
 export async function addMember(input: {
-  projectId: string
-  userId: string
-  role: ProjectRole
-  addedBy: string
+  projectId: string;
+  userId: string;
+  role: ProjectRole;
+  addedBy: string;
 }): Promise<ProjectMember> {
   return unwrap(
     await supabase
@@ -176,11 +172,11 @@ export async function fetchWorkAreas(projectId: string): Promise<WorkArea[]> {
 }
 
 export async function createWorkArea(input: {
-  projectId: string
-  name: string
-  boundary: Polygon
-  notes?: string | null
-  createdBy: string
+  projectId: string;
+  name: string;
+  boundary: Polygon;
+  notes?: string | null;
+  createdBy: string;
 }): Promise<WorkArea> {
   return unwrap(
     await supabase
@@ -230,9 +226,9 @@ export async function fetchAssignments(projectId: string): Promise<AreaAssignmen
 }
 
 export async function assignArea(input: {
-  workAreaId: string
-  userId: string
-  assignedBy: string
+  workAreaId: string;
+  userId: string;
+  assignedBy: string;
 }): Promise<AreaAssignment> {
   const row = unwrap(
     await supabase

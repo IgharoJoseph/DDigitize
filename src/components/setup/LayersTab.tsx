@@ -82,14 +82,17 @@ export function LayersTab({ projectId }: { projectId: string }) {
       void refresh();
       toast.success("Category added");
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not add category"),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Could not add category"),
   });
 
   return (
     <div className="space-y-6">
       <div>
         <div>
-          <h2 className="text-base font-semibold tracking-tight">Feature layers &amp; attributes</h2>
+          <h2 className="text-base font-semibold tracking-tight">
+            Feature layers &amp; attributes
+          </h2>
           <p className="text-sm text-muted-foreground">
             Contributors can only fill in the fields you define here, so every record comes back in
             the same shape.
@@ -113,7 +116,10 @@ export function LayersTab({ projectId }: { projectId: string }) {
             </div>
             <div className="w-40 space-y-1.5">
               <Label>Geometry</Label>
-              <Select value={geometryType} onValueChange={(value) => setGeometryType(value as GeomType)}>
+              <Select
+                value={geometryType}
+                onValueChange={(value) => setGeometryType(value as GeomType)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -164,10 +170,10 @@ function CategoryCard({
   userId,
   projectId,
 }: {
-  category: CategoryWithFields
-  onChanged: () => void
-  userId: string | null
-  projectId: string
+  category: CategoryWithFields;
+  onChanged: () => void;
+  userId: string | null;
+  projectId: string;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [label, setLabel] = useState("");
@@ -224,15 +230,12 @@ function CategoryCard({
 
   /** Per-layer production rules used by the live checks while digitising. */
   const setRule = async (patch: {
-    check_duplicates?: boolean
-    allow_overlap?: boolean
-    require_within_area?: boolean
-    overlap_severity?: string
+    check_duplicates?: boolean;
+    allow_overlap?: boolean;
+    require_within_area?: boolean;
+    overlap_severity?: string;
   }) => {
-    const { error } = await supabase
-      .from("feature_categories")
-      .update(patch)
-      .eq("id", category.id);
+    const { error } = await supabase.from("feature_categories").update(patch).eq("id", category.id);
     if (error) {
       toast.error(error.message);
       return;
@@ -256,9 +259,9 @@ function CategoryCard({
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as {
-        type?: string
-        features?: { geometry?: unknown; properties?: Record<string, unknown> }[]
-        geometry?: unknown
+        type?: string;
+        features?: { geometry?: unknown; properties?: Record<string, unknown> }[];
+        geometry?: unknown;
       };
       const items =
         parsed.type === "FeatureCollection" && Array.isArray(parsed.features)
@@ -332,7 +335,12 @@ function CategoryCard({
           >
             <Upload className="mr-1.5 size-3.5" /> Upload GeoJSON
           </Button>
-          <Button variant="ghost" size="icon" className="size-8 text-destructive" onClick={() => void removeCategory()}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 text-destructive"
+            onClick={() => void removeCategory()}
+          >
             <Trash2 className="size-4" />
           </Button>
         </div>
@@ -360,9 +368,7 @@ function CategoryCard({
           <RuleSwitch
             label="Block saving when a rule is broken (otherwise warn)"
             checked={category.overlap_severity === "error"}
-            onChange={(value) =>
-              void setRule({ overlap_severity: value ? "error" : "warning" })
-            }
+            onChange={(value) => void setRule({ overlap_severity: value ? "error" : "warning" })}
           />
         </div>
 
@@ -454,9 +460,9 @@ function RuleSwitch({
   checked,
   onChange,
 }: {
-  label: string
-  checked: boolean
-  onChange: (value: boolean) => void
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
 }) {
   return (
     <label className="flex items-center gap-2 text-xs">

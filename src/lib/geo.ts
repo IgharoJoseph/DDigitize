@@ -64,7 +64,9 @@ export function toUtm(lng: number, lat: number) {
   const easting =
     k0 *
       N *
-      (A + ((1 - T + C) * A ** 3) / 6 + ((5 - 18 * T + T ** 2 + 72 * C - 58 * ep2) * A ** 5) / 120) +
+      (A +
+        ((1 - T + C) * A ** 3) / 6 +
+        ((5 - 18 * T + T ** 2 + 72 * C - 58 * ep2) * A ** 5) / 120) +
     500000;
 
   let northing =
@@ -197,7 +199,7 @@ export function clampLat(value: number): number {
 /** Wraps longitude into [-180, 180] instead of rejecting 181 or -190. */
 export function wrapLng(value: number): number {
   if (!Number.isFinite(value)) return 0;
-  let lng = ((value + 180) % 360 + 360) % 360 - 180;
+  let lng = ((((value + 180) % 360) + 360) % 360) - 180;
   if (lng === -180) lng = 180;
   return lng;
 }
@@ -227,10 +229,10 @@ export function lngLatOrDefault(
 }
 
 export type BoundsLike = {
-  west?: unknown
-  south?: unknown
-  east?: unknown
-  north?: unknown
+  west?: unknown;
+  south?: unknown;
+  east?: unknown;
+  north?: unknown;
 };
 
 /** Validates a stored bounds object; returns null when unusable. */

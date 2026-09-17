@@ -4,12 +4,12 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { supabase } from "@/integrations/supabase/client";
 
 type AuthState = {
-  user: User | null
-  session: Session | null
-  isAdmin: boolean
-  loading: boolean
-  displayName: string
-  signOut: () => Promise<void>
+  user: User | null;
+  session: Session | null;
+  isAdmin: boolean;
+  loading: boolean;
+  displayName: string;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);

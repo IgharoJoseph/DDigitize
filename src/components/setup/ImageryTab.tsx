@@ -55,7 +55,8 @@ const GDAL_COMMANDS = [
   },
   {
     label: "2 · Build an MBTiles pyramid up to zoom 22",
-    command: "gdal_translate -of MBTILES ortho_3857.tif ortho.mbtiles -co ZOOM_LEVEL_STRATEGY=UPPER",
+    command:
+      "gdal_translate -of MBTILES ortho_3857.tif ortho.mbtiles -co ZOOM_LEVEL_STRATEGY=UPPER",
   },
   {
     label: "3 · Add overviews so lower zooms render",
@@ -131,7 +132,9 @@ export function ImageryTab({ projectId }: { projectId: string }) {
     // Coordinates are only stored when they are a valid [lng, lat] pair.
     const centre = safeLngLat(parsed.data.centreLng, parsed.data.centreLat);
     if ((parsed.data.centreLng || parsed.data.centreLat) && !centre) {
-      toast.error("Centre must be a longitude between -180 and 180 and a latitude between -90 and 90");
+      toast.error(
+        "Centre must be a longitude between -180 and 180 and a latitude between -90 and 90",
+      );
       return;
     }
     const bounds = safeBounds(inspection?.bounds ?? null);
@@ -192,7 +195,8 @@ export function ImageryTab({ projectId }: { projectId: string }) {
         <div>
           <h2 className="text-base font-semibold tracking-tight">Imagery</h2>
           <p className="text-sm text-muted-foreground">
-            Register a PMTiles archive by URL, verify it responds to ranged requests, then publish it.
+            Register a PMTiles archive by URL, verify it responds to ranged requests, then publish
+            it.
           </p>
         </div>
 
@@ -389,7 +393,9 @@ export function ImageryTab({ projectId }: { projectId: string }) {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{dataset.name}</p>
-                  <p className="readout truncate text-[10px] text-muted-foreground">{dataset.url}</p>
+                  <p className="readout truncate text-[10px] text-muted-foreground">
+                    {dataset.url}
+                  </p>
                 </div>
                 <Badge variant="outline" className="text-[9px] uppercase">
                   z{dataset.min_zoom}–{dataset.max_zoom}
@@ -414,10 +420,10 @@ export function ImageryTab({ projectId }: { projectId: string }) {
             <CardTitle className="text-base">Converting your own GeoTIFF</CardTitle>
             <CardDescription>
               Multi-gigabyte orthomosaics cannot be converted in a browser tab: the whole file would
-              have to be decoded in memory, which exhausts the tab and crashes it. Convert on your own
-              machine with the commands below, then upload the finished .pmtiles archive — a single
-              file that streams tiles over HTTP range requests, so nothing has to be unpacked on the
-              server.
+              have to be decoded in memory, which exhausts the tab and crashes it. Convert on your
+              own machine with the commands below, then upload the finished .pmtiles archive — a
+              single file that streams tiles over HTTP range requests, so nothing has to be unpacked
+              on the server.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -444,9 +450,9 @@ export function ImageryTab({ projectId }: { projectId: string }) {
               </div>
             ))}
             <p className="text-xs text-muted-foreground">
-              Cloudflare R2 has no egress fees, so a public bucket there is the cheapest way to serve
-              large drone archives. Enable CORS for your app origin and keep the object publicly
-              readable.
+              Cloudflare R2 has no egress fees, so a public bucket there is the cheapest way to
+              serve large drone archives. Enable CORS for your app origin and keep the object
+              publicly readable.
             </p>
           </CardContent>
         </Card>

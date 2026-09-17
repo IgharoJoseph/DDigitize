@@ -2,30 +2,24 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useAuth } from "@/hooks/useAuth";
 import type { EffectiveRole } from "@/lib/projects";
-import {
-  fetchAssignments,
-  fetchMembers,
-  fetchProject,
-  fetchWorkAreas,
-  pk,
-} from "@/lib/projects";
+import { fetchAssignments, fetchMembers, fetchProject, fetchWorkAreas, pk } from "@/lib/projects";
 
 export type ProjectAccess = {
-  loading: boolean
-  role: EffectiveRole
+  loading: boolean;
+  role: EffectiveRole;
   /** Manager or app admin: may change layers, imagery, areas and the team. */
-  canManage: boolean
+  canManage: boolean;
   /** Manager, supervisor or app admin: may verify or send work back. */
-  canReview: boolean
+  canReview: boolean;
   /** Only app admins may download data. */
-  canExport: boolean
+  canExport: boolean;
   /** Team-wide progress is for managers, supervisors and admins. */
-  canSeeTeamProgress: boolean
+  canSeeTeamProgress: boolean;
   /** Work areas this person is assigned to (empty for managers/admins = whole project). */
-  assignedAreaIds: string[]
+  assignedAreaIds: string[];
   /** True when digitizing is limited to the assigned areas. */
-  restrictedToAssignments: boolean
-  isMember: boolean
+  restrictedToAssignments: boolean;
+  isMember: boolean;
 };
 
 export function useProjectAccess(projectId: string): ProjectAccess {

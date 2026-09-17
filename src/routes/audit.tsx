@@ -29,9 +29,21 @@ export const Route = createFileRoute("/audit")({
 function AuditPage() {
   const { user, isAdmin, loading } = useAuth();
 
-  const logQuery = useQuery({ queryKey: ok.audit, queryFn: () => fetchAuditLog(), enabled: isAdmin });
-  const profilesQuery = useQuery({ queryKey: qk.profiles, queryFn: fetchProfiles, enabled: isAdmin });
-  const projectsQuery = useQuery({ queryKey: pk.projects, queryFn: fetchProjects, enabled: isAdmin });
+  const logQuery = useQuery({
+    queryKey: ok.audit,
+    queryFn: () => fetchAuditLog(),
+    enabled: isAdmin,
+  });
+  const profilesQuery = useQuery({
+    queryKey: qk.profiles,
+    queryFn: fetchProfiles,
+    enabled: isAdmin,
+  });
+  const projectsQuery = useQuery({
+    queryKey: pk.projects,
+    queryFn: fetchProjects,
+    enabled: isAdmin,
+  });
 
   if (!loading && !isAdmin) {
     return (

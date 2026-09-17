@@ -14,15 +14,15 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 
 type Props = {
-  basemap: BasemapId
-  onBasemap: (id: BasemapId) => void
-  datasets: ImageryDataset[]
-  datasetId: string | null
-  onDataset: (id: string | null) => void
-  opacity: number
-  onOpacity: (value: number) => void
-  imageryVisible: boolean
-  onImageryVisible: (value: boolean) => void
+  basemap: BasemapId;
+  onBasemap: (id: BasemapId) => void;
+  datasets: ImageryDataset[];
+  datasetId: string | null;
+  onDataset: (id: string | null) => void;
+  opacity: number;
+  onOpacity: (value: number) => void;
+  imageryVisible: boolean;
+  onImageryVisible: (value: boolean) => void;
 };
 
 export function BasemapPanel({

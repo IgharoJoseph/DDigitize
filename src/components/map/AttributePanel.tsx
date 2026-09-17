@@ -11,7 +11,13 @@ import type {
 } from "@/lib/data";
 import { CommentsSection } from "./CommentsSection";
 import { REVIEW_STATUSES, featureAttributes } from "@/lib/data";
-import { formatArea, formatDecimalDegrees, formatLength, geometryCentre, safeLngLat } from "@/lib/geo";
+import {
+  formatArea,
+  formatDecimalDegrees,
+  formatLength,
+  geometryCentre,
+  safeLngLat,
+} from "@/lib/geo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,17 +34,17 @@ import type { WorkArea } from "@/lib/projects";
 import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
-  feature: FeatureRow
-  categories: CategoryWithFields[]
-  profiles: Profile[]
-  canEdit: boolean
+  feature: FeatureRow;
+  categories: CategoryWithFields[];
+  profiles: Profile[];
+  canEdit: boolean;
   /** Managers, supervisors and admins may verify work or send it back. */
-  canReview: boolean
-  workAreas: WorkArea[]
-  onPatch: (patch: FeaturePatch) => void
-  onDelete: () => void
-  onClose: () => void
-  onZoom: () => void
+  canReview: boolean;
+  workAreas: WorkArea[];
+  onPatch: (patch: FeaturePatch) => void;
+  onDelete: () => void;
+  onClose: () => void;
+  onZoom: () => void;
 };
 
 export function AttributePanel({
@@ -82,10 +88,22 @@ export function AttributePanel({
           style={{ backgroundColor: category?.color ?? "#94a3b8" }}
         />
         <h2 className="truncate text-sm font-semibold">{category?.name ?? "Uncategorised"}</h2>
-        <Button variant="ghost" size="icon" className="ml-auto size-7" onClick={onZoom} aria-label="Zoom to feature">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto size-7"
+          onClick={onZoom}
+          aria-label="Zoom to feature"
+        >
           <Crosshair className="size-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="size-7" onClick={onClose} aria-label="Close attributes">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={onClose}
+          aria-label="Close attributes"
+        >
           <X className="size-4" />
         </Button>
       </div>
@@ -108,7 +126,9 @@ export function AttributePanel({
           </dl>
 
           <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Category</Label>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Category
+            </Label>
             <Select
               value={feature.category_id ?? ""}
               disabled={!canEdit}
@@ -277,7 +297,12 @@ export function AttributePanel({
           />
 
           {canEdit && (
-            <Button variant="outline" size="sm" className="w-full text-destructive" onClick={onDelete}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-destructive"
+              onClick={onDelete}
+            >
               <Trash2 className="mr-1.5 size-3.5" /> Delete feature
             </Button>
           )}

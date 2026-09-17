@@ -74,7 +74,11 @@ function ProgressPage() {
   const perPerson = useMemo(() => {
     const ids = Array.from(new Set(features.map((row) => row.created_by)));
     return ids
-      .map((id) => ({ id, name: name(id), ...summarise(features.filter((r) => r.created_by === id)) }))
+      .map((id) => ({
+        id,
+        name: name(id),
+        ...summarise(features.filter((r) => r.created_by === id)),
+      }))
       .sort((a, b) => b.count - a.count);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [features, profiles]);
@@ -114,7 +118,10 @@ function ProgressPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {sentBack.slice(0, 20).map((row) => (
-                <div key={row.id} className="rounded border border-border bg-card/60 px-3 py-2 text-xs">
+                <div
+                  key={row.id}
+                  className="rounded border border-border bg-card/60 px-3 py-2 text-xs"
+                >
                   <p className="font-medium">
                     {categories.find((item) => item.id === row.category_id)?.name ?? "Feature"}
                   </p>
@@ -190,9 +197,7 @@ function ProgressPage() {
 
         <Card className="bg-panel">
           <CardHeader>
-            <CardTitle className="text-base">
-              {teamView ? "Work areas" : "My work areas"}
-            </CardTitle>
+            <CardTitle className="text-base">{teamView ? "Work areas" : "My work areas"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {myAreas.map((area) => {

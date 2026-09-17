@@ -102,10 +102,10 @@ function NavLink({
     | "/p/$projectId/tasks"
     | "/p/$projectId/progress"
     | "/p/$projectId/review"
-    | "/p/$projectId/setup"
-  projectId: string
-  label: string
-  exact?: boolean
+    | "/p/$projectId/setup";
+  projectId: string;
+  label: string;
+  exact?: boolean;
 }) {
   return (
     <Link
@@ -120,15 +120,7 @@ function NavLink({
   );
 }
 
-function Gate({
-  title,
-  body,
-  action,
-}: {
-  title: string
-  body: string
-  action?: React.ReactNode
-}) {
+function Gate({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
     <div className="flex flex-1 items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">

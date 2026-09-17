@@ -5,8 +5,8 @@ import { featureAttributes, featureGeometry } from "./data";
 import { geometryCentre } from "./geo";
 
 type ExportContext = {
-  categories: CategoryWithFields[]
-  profiles: Profile[]
+  categories: CategoryWithFields[];
+  profiles: Profile[];
 };
 
 function categoryName(row: FeatureRow, ctx: ExportContext) {
@@ -159,11 +159,7 @@ const WGS84_PRJ =
  * Zipped Shapefile (.shp/.shx/.dbf/.prj) of the given features, in WGS84.
  * Runs in the browser so no data leaves the signed-in session.
  */
-export async function downloadShapefile(
-  rows: FeatureRow[],
-  ctx: ExportContext,
-  filename: string,
-) {
+export async function downloadShapefile(rows: FeatureRow[], ctx: ExportContext, filename: string) {
   const { zip } = await import("@mapbox/shp-write");
   const collection = {
     type: "FeatureCollection" as const,

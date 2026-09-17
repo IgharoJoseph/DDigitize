@@ -5,11 +5,11 @@ import { formatDecimalDegrees, formatDms, formatUtm, metresPerPixel, niceScale }
 import { cn } from "@/lib/utils";
 
 type Props = {
-  cursor: { lng: number; lat: number } | null
-  centreLat: number
-  zoom: number
-  featureCount: number
-  saveStatus: SaveStatus
+  cursor: { lng: number; lat: number } | null;
+  centreLat: number;
+  zoom: number;
+  featureCount: number;
+  saveStatus: SaveStatus;
 };
 
 function ScaleBar({ lat, zoom }: { lat: number; zoom: number }) {
@@ -38,9 +38,7 @@ export function StatusBar({ cursor, centreLat, zoom, featureCount, saveStatus }:
       <span className="readout shrink-0 rounded bg-secondary px-1.5 py-0.5 text-secondary-foreground">
         EPSG:4326 stored · EPSG:3857 rendered
       </span>
-      <span className="readout shrink-0">
-        DD {cursor ? formatDecimalDegrees(lng, lat) : "—"}
-      </span>
+      <span className="readout shrink-0">DD {cursor ? formatDecimalDegrees(lng, lat) : "—"}</span>
       <span className="readout hidden shrink-0 md:inline">
         DMS {cursor ? formatDms(lng, lat) : "—"}
       </span>
@@ -71,7 +69,9 @@ export function StatusBar({ cursor, centreLat, zoom, featureCount, saveStatus }:
             <span className="text-destructive">Save failed — retrying on next edit</span>
           </>
         )}
-        {saveStatus === "idle" && <span className={cn("text-muted-foreground")}>All changes stored</span>}
+        {saveStatus === "idle" && (
+          <span className={cn("text-muted-foreground")}>All changes stored</span>
+        )}
       </div>
     </div>
   );

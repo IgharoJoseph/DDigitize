@@ -45,15 +45,15 @@ function overlapRatio(geometry: Geometry, other: Geometry): number {
  * attributes. Errors block saving; warnings only need acknowledging.
  */
 export function validateFeature(input: {
-  geometry: Geometry
-  category: (Category & { fields: CategoryField[] }) | null
-  attributes?: Record<string, unknown>
-  areas: WorkArea[]
-  assignedAreaIds: string[]
-  restrictedToAssignments: boolean
-  containingArea: WorkArea | null
-  siblings: FeatureRow[]
-  featureId?: string
+  geometry: Geometry;
+  category: (Category & { fields: CategoryField[] }) | null;
+  attributes?: Record<string, unknown>;
+  areas: WorkArea[];
+  assignedAreaIds: string[];
+  restrictedToAssignments: boolean;
+  containingArea: WorkArea | null;
+  siblings: FeatureRow[];
+  featureId?: string;
 }): Issue[] {
   const issues: Issue[] = [];
   const { geometry, category } = input;
@@ -65,8 +65,7 @@ export function validateFeature(input: {
 
   // Work-area containment.
   if (input.restrictedToAssignments) {
-    const inside =
-      input.containingArea && input.assignedAreaIds.includes(input.containingArea.id);
+    const inside = input.containingArea && input.assignedAreaIds.includes(input.containingArea.id);
     if (!inside) {
       issues.push({ severity: "error", message: "Outside assigned work area" });
     }

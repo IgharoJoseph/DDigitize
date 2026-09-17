@@ -55,10 +55,10 @@ export function AreasTab({ projectId }: { projectId: string }) {
     setBusy(true);
     try {
       const parsed = JSON.parse(await file.text()) as {
-        type?: string
-        features?: { geometry?: unknown; properties?: Record<string, unknown> }[]
-        geometry?: unknown
-        properties?: Record<string, unknown>
+        type?: string;
+        features?: { geometry?: unknown; properties?: Record<string, unknown> }[];
+        geometry?: unknown;
+        properties?: Record<string, unknown>;
       };
       const items =
         parsed.type === "FeatureCollection" && Array.isArray(parsed.features)

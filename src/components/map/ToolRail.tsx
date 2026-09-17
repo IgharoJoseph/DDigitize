@@ -18,20 +18,25 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 
 type Props = {
-  tool: Tool
-  onTool: (tool: Tool) => void
-  disabled: boolean
-  canUndo: boolean
-  canRedo: boolean
-  onUndo: () => void
-  onRedo: () => void
-  onDelete: () => void
-  canDelete: boolean
+  tool: Tool;
+  onTool: (tool: Tool) => void;
+  disabled: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  onDelete: () => void;
+  canDelete: boolean;
 };
 
 const TOOLS: { id: Tool; label: string; icon: LucideIcon; hint: string }[] = [
   { id: "pan", label: "Pan", icon: Hand, hint: "Pan and inspect imagery" },
-  { id: "select", label: "Select / edit", icon: MousePointer2, hint: "Select, drag vertices, delete vertices" },
+  {
+    id: "select",
+    label: "Select / edit",
+    icon: MousePointer2,
+    hint: "Select, drag vertices, delete vertices",
+  },
   { id: "polygon", label: "Polygon", icon: Pentagon, hint: "Trace buildings and parcels" },
   { id: "rectangle", label: "Rectangle", icon: Square, hint: "Quick rectangular footprints" },
   { id: "linestring", label: "Line", icon: Slash, hint: "Roads, waterways, powerlines" },

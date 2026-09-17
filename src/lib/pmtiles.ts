@@ -14,16 +14,16 @@ export function ensurePmtilesProtocol() {
 }
 
 export type InspectResult = {
-  ok: boolean
-  message: string
-  tileType?: string
-  minZoom?: number
-  maxZoom?: number
-  bounds?: { west: number; south: number; east: number; north: number } | undefined
-  center?: { lng: number; lat: number; zoom: number } | undefined
-  tileCount?: number
-  byteRangeMs?: number
-  metadata?: Record<string, unknown>
+  ok: boolean;
+  message: string;
+  tileType?: string;
+  minZoom?: number;
+  maxZoom?: number;
+  bounds?: { west: number; south: number; east: number; north: number } | undefined;
+  center?: { lng: number; lat: number; zoom: number } | undefined;
+  tileCount?: number;
+  byteRangeMs?: number;
+  metadata?: Record<string, unknown>;
 };
 
 const TILE_TYPES: Record<number, string> = {

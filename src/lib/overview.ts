@@ -5,24 +5,28 @@ export type ReviewStatus = Database["public"]["Enums"]["review_status"];
 export type AreaStatus = Database["public"]["Enums"]["area_status"];
 
 export type OverviewFeature = {
-  id: string
-  project_id: string | null
-  status: ReviewStatus
-  created_by: string | null
-  work_area_id: string | null
+  id: string;
+  project_id: string | null;
+  status: ReviewStatus;
+  created_by: string | null;
+  work_area_id: string | null;
 };
 
 export type OverviewArea = {
-  id: string
-  project_id: string
-  status: AreaStatus
-  name: string
+  id: string;
+  project_id: string;
+  status: AreaStatus;
+  name: string;
 };
 
 export type Overview = {
-  features: OverviewFeature[]
-  areas: OverviewArea[]
-  members: { project_id: string; user_id: string; role: Database["public"]["Enums"]["project_role"] }[]
+  features: OverviewFeature[];
+  areas: OverviewArea[];
+  members: {
+    project_id: string;
+    user_id: string;
+    role: Database["public"]["Enums"]["project_role"];
+  }[];
 };
 
 export const ok = {
