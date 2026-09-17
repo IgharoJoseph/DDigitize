@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789673604691,
+      "tag": "0000_dronetrace_core_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789675190387,
+      "tag": "0001_projects_roles_work_areas",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789675830187,
+      "tag": "0002_gis_production_extensions",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789675989261,
+      "tag": "0003_contributor_area_submit_policy",
+      "breakpoints": true
+    }
+  ]
+}
