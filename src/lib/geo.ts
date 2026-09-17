@@ -235,11 +235,23 @@ export type BoundsLike = {
   north?: unknown;
 };
 
-/** Validates a stored bounds object; returns null when unusable. */
+/**
+ * Validates a stored bounds value; returns null when unusable.
+ * Accepts both the object form and the GeoJSON/PMTiles array form
+ * [west, south, east, north].
+ */
 export function safeBounds(
   input: unknown,
 ): { west: number; south: number; east: number; north: number } | null {
-  if (!input || typeof input !== "object") return null;
+  if (!input) return null;
+  if (Array.isArray(input)) {
+    if (input.length < 4) return null;
+    const sw = safeLngLat(input[0], input[1]);
+    const ne = safeLngLat(input[2], input[3]);
+    if (!sw || !ne || sw[1] > ne[1]) return null;
+    return { west: sw[0], south: sw[1], east: ne[0], north: ne[1] };
+  }
+  if (typeof input !== "object") return null;
   const { west, south, east, north } = input as BoundsLike;
   const sw = safeLngLat(west, south);
   const ne = safeLngLat(east, north);
@@ -247,6 +259,7 @@ export function safeBounds(
   if (sw[1] > ne[1]) return null;
   return { west: sw[0], south: sw[1], east: ne[0], north: ne[1] };
 }
+
 
 /**
  * Parses free text a person typed into a coordinate box. Longitude first is the

@@ -1,8 +1,10 @@
-import { Layers } from "lucide-react";
+import { Crosshair, Layers } from "lucide-react";
 
 import { BASEMAPS, type BasemapId } from "@/lib/basemaps";
 import type { ImageryDataset } from "@/lib/data";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+
 import {
   Select,
   SelectContent,
@@ -23,6 +25,8 @@ type Props = {
   onOpacity: (value: number) => void;
   imageryVisible: boolean;
   onImageryVisible: (value: boolean) => void;
+  loading?: boolean;
+  onZoomToImagery?: () => void;
 };
 
 export function BasemapPanel({
@@ -35,7 +39,10 @@ export function BasemapPanel({
   onOpacity,
   imageryVisible,
   onImageryVisible,
+  loading,
+  onZoomToImagery,
 }: Props) {
+
   const dataset = datasets.find((item) => item.id === datasetId) ?? null;
 
   return (
@@ -95,6 +102,30 @@ export function BasemapPanel({
             </dd>
           </dl>
         )}
+
+        {datasets.length === 0 && (
+          <p className="rounded border border-border bg-card/60 p-2 text-[11px] leading-relaxed text-muted-foreground">
+            No imagery is registered for this project yet. Add a PMTiles dataset under Set up →
+            Imagery, or use one of the samples listed there.
+          </p>
+        )}
+
+        {dataset && (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-7 flex-1 text-xs"
+              onClick={onZoomToImagery}
+            >
+              <Crosshair className="mr-1 size-3.5" /> Zoom to imagery
+            </Button>
+            {loading && <span className="text-[10px] text-muted-foreground">Streaming…</span>}
+          </div>
+        )}
+
+
 
         <div className="flex items-center justify-between rounded border border-border bg-card/60 px-2 py-1.5">
           <span className="text-xs text-muted-foreground">Show imagery</span>

@@ -91,6 +91,17 @@ const DRAW_MODE_FOR_GEOMETRY: Record<string, string> = {
 
 type UndoStep = { undo: () => Promise<void>; redo: () => Promise<void> };
 
+/**
+ * MapLibre's isStyleLoaded() also waits for every source's tiles, so a large
+ * PMTiles archive that is still streaming keeps it false indefinitely. Adding
+ * sources, layers and the drawing engine only needs the style itself parsed.
+ */
+function styleParsed(map: MapLibreMap): boolean {
+  const style = (map as unknown as { style?: { _loaded?: boolean } }).style;
+  return Boolean(style?._loaded);
+}
+
+
 /** Tracks the theme class on <html> so the map restyles with the app toggle. */
 function useIsDarkTheme() {
   const [isDark, setIsDark] = useState(true);
@@ -123,6 +134,8 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   const [datasetId, setDatasetId] = useState<string | null>(null);
   const [opacity, setOpacity] = useState(1);
   const [imageryVisible, setImageryVisible] = useState(true);
+  const [imageryLoading, setImageryLoading] = useState(false);
+
   const [tool, setTool] = useState<Tool>("pan");
   const [drawCategoryId, setDrawCategoryId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -137,6 +150,12 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   // Bumped once each new style finishes loading; the drawing layers live in the
   // style, so they are rebuilt per epoch.
   const [styleEpoch, setStyleEpoch] = useState(0);
+  // Bumped when the overlay sources are (re)created on the map.
+  const [overlayEpoch, setOverlayEpoch] = useState(0);
+  // Bumped when the drawing engine attaches, so its listeners can be wired up.
+  const [drawReady, setDrawReady] = useState(0);
+
+
   const [undoStack, setUndoStack] = useState<UndoStep[]>([]);
   const [redoStack, setRedoStack] = useState<UndoStep[]>([]);
 
@@ -184,12 +203,16 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     void queryClient.invalidateQueries({ queryKey: qk.activity(projectId) });
   }, [queryClient, projectId]);
 
-  // Open on the first published dataset so contributors land on imagery.
+  // Open on the sharpest published dataset so contributors land on real imagery
+  // rather than a coarse low-zoom archive.
   useEffect(() => {
     if (datasetId || datasets.length === 0) return;
-    const first = datasets.find((item) => item.is_published) ?? datasets[0];
-    if (first) setDatasetId(first.id);
+    const published = datasets.filter((item) => item.is_published);
+    const pool = published.length > 0 ? published : datasets;
+    const best = [...pool].sort((a, b) => (b.max_zoom ?? 0) - (a.max_zoom ?? 0))[0];
+    if (best) setDatasetId(best.id);
   }, [datasets, datasetId]);
+
 
   /* ---------------- autosave ---------------- */
 
@@ -242,6 +265,9 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       attributionControl: { compact: true },
     });
     mapRef.current = map;
+    map.on("error", (event) => console.error("[map]", event.error?.message ?? event));
+
+
     map.addControl(new NavigationControl({ visualizePitch: false }), "bottom-right");
 
     map.on("mousemove", (event) => {
@@ -275,7 +301,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
 
   const applyOverlays = useCallback(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map || !styleParsed(map)) return;
 
     // styledata can fire before the style is fully parsed, and MapLibre throws
     // "Style is not done loading" from addSource. The retry happens on the next
@@ -300,14 +326,23 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
               }
             : {}),
         });
-        map.addLayer({
-          id: IMAGERY_LAYER,
-          type: "raster",
-          source: IMAGERY_SOURCE,
-          paint: { "raster-opacity": opacity, "raster-resampling": "nearest" },
-          layout: { visibility: imageryVisible ? "visible" : "none" },
-        });
+        map.addLayer(
+          {
+            id: IMAGERY_LAYER,
+            type: "raster",
+            source: IMAGERY_SOURCE,
+            // No layer maxzoom: MapLibre keeps over-zooming the deepest available
+            // tiles, so people can magnify past the archive's native resolution.
+            paint: { "raster-opacity": opacity, "raster-resampling": "linear" },
+            layout: { visibility: imageryVisible ? "visible" : "none" },
+          },
+          // Imagery stays underneath the work areas and digitized features when
+          // those layers already exist (e.g. after switching dataset).
+          map.getLayer("dt-area-fill") ? "dt-area-fill" : undefined,
+        );
       }
+
+
 
       if (!map.getSource(AREA_SOURCE)) {
         map.addSource(AREA_SOURCE, {
@@ -382,11 +417,15 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
             "circle-stroke-color": "#ffffff",
           },
         });
+        // The data effects below only run once the sources exist, so they are
+        // re-run whenever the overlay sources are (re)created.
+        setOverlayEpoch((epoch) => epoch + 1);
       }
     } catch {
       /* retried on the next style event */
     }
   }, [dataset, opacity, imageryVisible]);
+
 
   useEffect(() => {
     const map = mapRef.current;
@@ -402,22 +441,28 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   }, [applyOverlays, mapReady]);
 
   // Basemap / theme switch: MapLibre drops custom sources, so overlays are re-added.
+  // The map is created with this style already, so the first run is skipped —
+  // calling setStyle during the initial load leaves the canvas blank.
+  const styleSignature = `${basemap}:${isDark ? "dark" : "light"}`;
+  const appliedStyle = useRef<string | null>(null);
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
+    if (appliedStyle.current === null) {
+      appliedStyle.current = styleSignature;
+      return;
+    }
+    if (appliedStyle.current === styleSignature) return;
+    appliedStyle.current = styleSignature;
     map.setStyle(basemapStyle(basemap, isDark), { diff: false });
     map.once("idle", () => setStyleEpoch((epoch) => epoch + 1));
-  }, [basemap, isDark, mapReady]);
+  }, [basemap, isDark, mapReady, styleSignature]);
 
-  // Dataset switch
-  useEffect(() => {
+
+  // Fly to the imagery: its stored bounds when usable, otherwise its centre.
+  const zoomToImagery = useCallback(() => {
     const map = mapRef.current;
-    if (!map || !mapReady || !map.isStyleLoaded()) return;
-    if (map.getLayer(IMAGERY_LAYER)) map.removeLayer(IMAGERY_LAYER);
-    if (map.getSource(IMAGERY_SOURCE)) map.removeSource(IMAGERY_SOURCE);
-    applyOverlays();
-
-    if (!dataset) return;
+    if (!map || !dataset) return;
     const bounds = safeBounds(dataset.bounds);
     if (bounds) {
       map.fitBounds(
@@ -431,8 +476,38 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     }
     const centre = safeLngLat(dataset.center_lng, dataset.center_lat);
     if (centre) map.flyTo({ center: centre, zoom: Math.max(14, dataset.min_zoom ?? 14) });
+  }, [dataset]);
+
+  // Dataset switch
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !styleParsed(map)) return;
+    if (map.getLayer(IMAGERY_LAYER)) map.removeLayer(IMAGERY_LAYER);
+    if (map.getSource(IMAGERY_SOURCE)) map.removeSource(IMAGERY_SOURCE);
+    applyOverlays();
+    zoomToImagery();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetId, mapReady]);
+
+  // Streaming indicator: PMTiles tiles arrive over HTTP range requests, so the
+  // panel says when imagery is still loading.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const update = () => {
+      const source = map.getSource(IMAGERY_SOURCE);
+      setImageryLoading(Boolean(source) && !map.areTilesLoaded());
+    };
+    map.on("dataloading", update);
+    map.on("data", update);
+    map.on("idle", update);
+    return () => {
+      map.off("dataloading", update);
+      map.off("data", update);
+      map.off("idle", update);
+    };
+  }, [mapReady, datasetId]);
+
 
   useEffect(() => {
     const map = mapRef.current;
@@ -474,7 +549,8 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
         const category = categories.find((item) => item.id === row.category_id);
         return {
           type: "Feature",
-          id: row.id,
+          // No GeoJSON "id": MapLibre only accepts numeric ids, and a UUID keeps
+          // the source from tiling at all. The id travels in properties instead.
           geometry: featureGeometry(row),
           properties: {
             id: row.id,
@@ -489,7 +565,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       type: "FeatureCollection",
       features: collection,
     });
-  }, [visibleFeatures, categories, selectedId, mapReady]);
+  }, [visibleFeatures, categories, selectedId, mapReady, styleEpoch, overlayEpoch]);
 
   // Work areas: the ones assigned to this person read as open, the rest dimmed.
   useEffect(() => {
@@ -502,7 +578,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       .filter((area) => Boolean(areaBoundary(area)))
       .map((area) => ({
         type: "Feature",
-        id: area.id,
+        // Same as above: the UUID stays in properties only.
         geometry: areaBoundary(area),
         properties: { id: area.id, name: area.name, mine: mine.has(area.id) },
       }));
@@ -510,7 +586,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       type: "FeatureCollection",
       features: collection,
     });
-  }, [areas, myAreas, mapReady, styleEpoch]);
+  }, [areas, myAreas, mapReady, styleEpoch, overlayEpoch]);
 
   // Contributors open on their own patch of work.
   const fittedAreas = useRef(false);
@@ -558,7 +634,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapReady || !map.isStyleLoaded()) return;
+    if (!map || !mapReady) return;
 
     const snapping = { toCoordinate: true, toLine: true } as const;
     const coordinateFlags = {
@@ -568,35 +644,57 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       snappable: true,
     };
 
-    const draw = new TerraDraw({
-      adapter: new TerraDrawMapLibreGLAdapter({ map }),
-      modes: [
-        new TerraDrawPointMode(),
-        new TerraDrawLineStringMode({ snapping }),
-        new TerraDrawPolygonMode({ snapping }),
-        new TerraDrawRectangleMode(),
-        new TerraDrawSelectMode({
-          flags: {
-            point: { feature: { draggable: true } },
-            linestring: { feature: { draggable: true, coordinates: coordinateFlags } },
-            polygon: { feature: { draggable: true, coordinates: coordinateFlags } },
-            rectangle: { feature: { draggable: true, coordinates: coordinateFlags } },
-          },
-        }),
-      ],
-    });
-    try {
-      draw.start();
-      draw.setMode("static");
-      drawRef.current = draw;
-    } catch (error) {
-      console.error("Could not start the drawing tools", error);
-      return;
+    let draw: TerraDraw | null = null;
+
+    // The adapter needs a fully parsed style. "idle" can fire while MapLibre is
+    // still finishing the style, so initialisation is retried on later style
+    // events instead of being abandoned after one attempt.
+    const init = () => {
+      if (draw || !styleParsed(map)) return;
+
+      const instance = new TerraDraw({
+        adapter: new TerraDrawMapLibreGLAdapter({ map }),
+        modes: [
+          new TerraDrawPointMode(),
+          new TerraDrawLineStringMode({ snapping }),
+          new TerraDrawPolygonMode({ snapping }),
+          new TerraDrawRectangleMode(),
+          new TerraDrawSelectMode({
+            flags: {
+              point: { feature: { draggable: true } },
+              linestring: { feature: { draggable: true, coordinates: coordinateFlags } },
+              polygon: { feature: { draggable: true, coordinates: coordinateFlags } },
+              rectangle: { feature: { draggable: true, coordinates: coordinateFlags } },
+            },
+          }),
+        ],
+      });
+      try {
+        instance.start();
+        instance.setMode("static");
+      } catch (error) {
+        console.error("Could not start the drawing tools", error);
+        return;
+      }
+      draw = instance;
+      drawRef.current = instance;
+      map.off("idle", init);
+      map.off("styledata", init);
+      // Lets the mode/listener effects below attach to the live instance.
+      setDrawReady((count) => count + 1);
+    };
+
+    init();
+    if (!draw) {
+      map.on("idle", init);
+      map.on("styledata", init);
     }
 
     return () => {
+      map.off("idle", init);
+      map.off("styledata", init);
       try {
-        draw.stop();
+        draw?.stop();
       } catch {
         /* the style may already be gone */
       }
@@ -608,8 +706,14 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   useEffect(() => {
     const draw = drawRef.current;
     if (!draw) return;
-    draw.setMode(tool === "pan" ? "static" : tool);
-  }, [tool, mapReady, styleEpoch]);
+    try {
+      draw.setMode(tool === "pan" ? "static" : tool);
+    } catch (error) {
+      console.error("Could not switch drawing tool", error);
+    }
+  }, [tool, mapReady, styleEpoch, drawReady]);
+
+
 
   const createMutation = useMutation({
     mutationFn: async (geometry: Geometry) => {
@@ -700,7 +804,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     return () => {
       draw.off("finish", onFinish);
     };
-  }, [createMutation, mapReady]);
+  }, [createMutation, mapReady, drawReady]);
 
   // Load the selected feature into terra-draw for vertex editing
   useEffect(() => {
@@ -726,7 +830,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     } catch {
       editingRef.current = null;
     }
-  }, [selectedId, canEditSelected, tool, selected, styleEpoch]);
+  }, [selectedId, canEditSelected, tool, selected, styleEpoch, drawReady]);
 
   // Geometry edits → autosave
   useEffect(() => {
@@ -750,7 +854,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     return () => {
       draw.off("change", onChange);
     };
-  }, [queuePatch, mapReady]);
+  }, [queuePatch, mapReady, drawReady]);
 
   /* ---------------- actions ---------------- */
 
@@ -905,6 +1009,9 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
                 onOpacity={setOpacity}
                 imageryVisible={imageryVisible}
                 onImageryVisible={setImageryVisible}
+                loading={imageryLoading}
+                onZoomToImagery={zoomToImagery}
+
               />
               <div className="border-t border-border px-3 py-3">
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -951,7 +1058,10 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
         )}
 
         <div className="relative flex min-w-0 flex-1 flex-col">
-          <div ref={containerRef} className="absolute inset-0" />
+          {/* MapLibre's stylesheet forces position:relative on its container, which
+              cancels absolute positioning and collapses the height — size it directly. */}
+          <div ref={containerRef} className="h-full w-full" />
+
 
           <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-2">
             <Button
