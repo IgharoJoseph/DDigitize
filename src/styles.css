@@ -6,7 +6,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * DroneTrace design system — GIS workstation.
+ * DDigitize design system — GIS workstation.
  * Instrument-panel greys, signal-cyan primary, amber for review states.
  * All colours are oklch semantic tokens; never hardcode colours in components.
  */

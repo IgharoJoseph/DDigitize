@@ -14,7 +14,7 @@ export function TopBar() {
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-panel px-3">
       <Link to="/" className="flex items-center gap-2">
         <Radar className="size-5 text-primary" />
-        <span className="text-sm font-semibold tracking-tight">DroneTrace</span>
+        <span className="text-sm font-semibold tracking-tight">DDigitize</span>
       </Link>
 
       <nav className="flex items-center gap-1">

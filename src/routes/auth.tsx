@@ -15,12 +15,12 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — DroneTrace" },
+      { title: "Sign in — DDigitize" },
       {
         name: "description",
-        content: "Sign in to DroneTrace to digitize drone imagery with your mapping team.",
+        content: "Sign in to DDigitize to digitize drone imagery with your mapping team.",
       },
-      { property: "og:title", content: "Sign in to DroneTrace" },
+      { property: "og:title", content: "Sign in to DDigitize" },
       {
         property: "og:description",
         content: "Contributor and admin access for collaborative drone imagery digitizing.",
@@ -106,7 +106,7 @@ function AuthPage() {
         <CardHeader className="space-y-2">
           <div className="flex items-center gap-2">
             <Radar className="size-5 text-primary" />
-            <CardTitle className="text-lg">DroneTrace</CardTitle>
+            <CardTitle className="text-lg">DDigitize</CardTitle>
           </div>
           <CardDescription>
             Sign in to digitize features. The first account created becomes the project admin.

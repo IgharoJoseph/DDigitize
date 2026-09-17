@@ -10,13 +10,13 @@ import { fetchProjects, pk } from "@/lib/projects";
 export const Route = createFileRoute("/audit")({
   head: () => ({
     meta: [
-      { title: "Audit log — DroneTrace" },
+      { title: "Audit log — DDigitize" },
       {
         name: "description",
         content:
           "Who created, edited, submitted, approved or exported what, with the project and timestamp.",
       },
-      { property: "og:title", content: "DroneTrace audit log" },
+      { property: "og:title", content: "DDigitize audit log" },
       {
         property: "og:description",
         content: "A complete record of production actions across every project.",

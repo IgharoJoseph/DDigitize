@@ -12,13 +12,13 @@ import { fetchMyMemberships, fetchProjects, pk } from "@/lib/projects";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Production dashboard — DroneTrace" },
+      { title: "Production dashboard — DDigitize" },
       {
         name: "description",
         content:
           "Live production status across all mapping projects: work-area completion, features awaiting QA and approved output.",
       },
-      { property: "og:title", content: "DroneTrace production dashboard" },
+      { property: "og:title", content: "DDigitize production dashboard" },
       {
         property: "og:description",
         content: "Track digitising progress, QA queues and contributor output per project.",

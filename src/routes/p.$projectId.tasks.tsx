@@ -30,13 +30,13 @@ import {
 export const Route = createFileRoute("/p/$projectId/tasks")({
   head: () => ({
     meta: [
-      { title: "Tasks — DroneTrace" },
+      { title: "Tasks — DDigitize" },
       {
         name: "description",
         content:
           "Every work area as a task: who it belongs to, its production status, feature count and progress.",
       },
-      { property: "og:title", content: "DroneTrace tasks" },
+      { property: "og:title", content: "DDigitize tasks" },
       {
         property: "og:description",
         content: "Assign, reassign and track digitising tasks per work area.",

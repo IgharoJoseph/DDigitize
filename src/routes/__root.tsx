@@ -81,13 +81,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "DroneTrace — collaborative drone imagery digitizing" },
+      { title: "DDigitize — collaborative drone imagery digitizing" },
       {
         name: "description",
         content:
           "Digitize buildings, roads and parcels from high-resolution drone imagery with a shared attribute schema.",
       },
-      { property: "og:title", content: "DroneTrace" },
+      { property: "og:title", content: "DDigitize" },
       {
         property: "og:description",
         content: "Collaborative drone imagery digitizing on MapLibre and PMTiles.",

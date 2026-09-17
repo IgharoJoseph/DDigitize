@@ -16,13 +16,13 @@ import { createProject, fetchMyMemberships, fetchProjects, pk, type Project } fr
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Projects — DroneTrace" },
+      { title: "Projects — DDigitize" },
       {
         name: "description",
         content:
           "Pick a drone mapping project to open. Managers set up feature layers, imagery and work areas; contributors digitize the area assigned to them.",
       },
-      { property: "og:title", content: "DroneTrace projects" },
+      { property: "og:title", content: "DDigitize projects" },
       {
         property: "og:description",
         content: "Collaborative drone imagery digitizing, organised per project and per role.",
@@ -76,7 +76,7 @@ function ProjectsPage() {
     return (
       <div className="flex flex-1 items-center justify-center bg-background px-4">
         <div className="max-w-md text-center">
-          <h1 className="text-xl font-semibold tracking-tight">DroneTrace</h1>
+          <h1 className="text-xl font-semibold tracking-tight">DDigitize</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Sign in to see the mapping projects you have been added to.
           </p>

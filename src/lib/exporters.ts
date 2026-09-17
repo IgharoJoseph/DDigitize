@@ -91,7 +91,7 @@ export function toKml(rows: FeatureRow[], ctx: ExportContext): string {
     .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>DroneTrace export</name>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>DDigitize export</name>
 ${placemarks}
 </Document></kml>`;
 }

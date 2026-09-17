@@ -22,13 +22,13 @@ import { fetchProjects, pk } from "@/lib/projects";
 export const Route = createFileRoute("/export")({
   head: () => ({
     meta: [
-      { title: "Export data — DroneTrace" },
+      { title: "Export data — DDigitize" },
       {
         name: "description",
         content:
           "Download verified digitizing results as Shapefile, GeoJSON, KML or CSV. Administrators only.",
       },
-      { property: "og:title", content: "DroneTrace data export" },
+      { property: "og:title", content: "DDigitize data export" },
       {
         property: "og:description",
         content: "Admin-only download of digitized features in WGS84.",
@@ -83,7 +83,7 @@ function ExportPage() {
     categories: categoriesQuery.data ?? [],
     profiles: profilesQuery.data ?? [],
   };
-  const slug = (project?.name ?? "dronetrace").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const slug = (project?.name ?? "ddigitize").toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   const run = async (format: "shp" | "geojson" | "kml" | "csv") => {
     if (rows.length === 0) {

@@ -10,13 +10,13 @@ import { fetchProject } from "@/lib/projects";
 export const Route = createFileRoute("/p/$projectId")({
   head: () => ({
     meta: [
-      { title: "Project workspace — DroneTrace" },
+      { title: "Project workspace — DDigitize" },
       {
         name: "description",
         content:
           "Digitize drone imagery inside your assigned work area, with the feature layers and attributes your manager defined.",
       },
-      { property: "og:title", content: "DroneTrace project workspace" },
+      { property: "og:title", content: "DDigitize project workspace" },
       {
         property: "og:description",
         content: "Role-based drone imagery digitizing with review and progress tracking.",

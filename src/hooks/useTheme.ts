@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-const STORAGE_KEY = "dronetrace-theme";
+const STORAGE_KEY = "ddigitize-theme";
 export type Theme = "dark" | "light";
 
 /** Theme is read after hydration only — the server cannot see local storage. */
