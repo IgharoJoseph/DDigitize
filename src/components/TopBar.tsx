@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Eye, LogOut, Moon, Radar, Sun } from "lucide-react";
 
+import { MobileNavButton } from "@/components/AppSidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,12 +22,13 @@ export function TopBar() {
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-panel px-3">
+      <MobileNavButton />
       <Link to="/" className="flex items-center gap-2">
         <Radar className="size-5 text-primary" />
         <span className="text-sm font-semibold tracking-tight">DDigitize</span>
       </Link>
 
-      <nav className="flex items-center gap-1">
+      <nav className="hidden items-center gap-1 sm:flex">
         <Link
           to="/"
           activeOptions={{ exact: true }}
@@ -51,21 +53,23 @@ export function TopBar() {
           <Button
             variant={previewRole ? "default" : "outline"}
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            className="h-8 gap-1.5 text-xs max-sm:px-2"
             onClick={() => setPreviewRole(previewRole ? null : "contributor")}
           >
             <Eye className="size-3.5" />
-            {previewRole ? "Exit contributor view" : "View as contributor"}
+            <span className="hidden sm:inline">
+              {previewRole ? "Exit contributor view" : "View as contributor"}
+            </span>
           </Button>
         )}
         {previewRole && <Badge className="text-[9px] uppercase">contributor view</Badge>}
         {isAdmin ? (
-          <Badge variant="outline" className="text-[9px] uppercase">
+          <Badge variant="outline" className="hidden text-[9px] uppercase sm:inline-flex">
             System administrator
           </Badge>
         ) : (
           isManager && (
-            <Badge variant="outline" className="text-[9px] uppercase">
+            <Badge variant="outline" className="hidden text-[9px] uppercase sm:inline-flex">
               Manager
             </Badge>
           )

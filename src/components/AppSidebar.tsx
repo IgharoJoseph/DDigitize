@@ -1,4 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
+import { Menu } from "lucide-react";
+import { useState } from "react";
 import {
   ClipboardList,
   Download,
@@ -13,6 +15,8 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
 import { useProjectAccess } from "@/hooks/useProjectRole";
 
@@ -23,6 +27,42 @@ type Icon = ComponentType<{ className?: string }>;
  * block appears once you are inside a project workspace.
  */
 export function AppSidebar() {
+  return (
+    <aside className="hidden w-48 shrink-0 flex-col gap-4 overflow-y-auto border-r border-border bg-panel px-2 py-3 md:flex">
+      <SidebarNav />
+    </aside>
+  );
+}
+
+/**
+ * Same navigation inside a slide-over panel, used on phones where the sidebar
+ * has no room. The trigger lives in the top bar.
+ */
+export function MobileNavButton() {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  if (!user) return null;
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon" className="size-8 md:hidden" aria-label="Open menu">
+          <Menu className="size-5" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-64 bg-panel px-2 py-3">
+        <SheetHeader className="px-2 pb-2">
+          <SheetTitle className="text-sm">Menu</SheetTitle>
+        </SheetHeader>
+        <div className="flex flex-col gap-4 overflow-y-auto">
+          <SidebarNav onNavigate={() => setOpen(false)} />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function SidebarNav({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const { user, isAdmin, isManager } = useAuth();
   const params = useParams({ strict: false }) as { projectId?: string };
   const projectId = params.projectId ?? null;
@@ -31,20 +71,32 @@ export function AppSidebar() {
   if (!user) return null;
 
   return (
-    <aside className="hidden w-48 shrink-0 flex-col gap-4 overflow-y-auto border-r border-border bg-panel px-2 py-3 md:flex">
+    <>
       <Section title="Workspace">
-        <Item to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
-        <Item to="/" icon={FolderKanban} label="Projects" exact />
-        {(isAdmin || isManager) && <Item to="/export" icon={Download} label="Exports" />}
-        {isAdmin && <Item to="/users" icon={Users} label="Accounts" />}
-        {isAdmin && <Item to="/audit" icon={ScrollText} label="Audit log" />}
-        <Item to="/settings" icon={Settings} label="Settings" />
+        <Item onNavigate={onNavigate} to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
+        <Item onNavigate={onNavigate} to="/" icon={FolderKanban} label="Projects" exact />
+        {(isAdmin || isManager) && (
+          <Item onNavigate={onNavigate} to="/export" icon={Download} label="Exports" />
+        )}
+        {isAdmin && <Item onNavigate={onNavigate} to="/users" icon={Users} label="Accounts" />}
+        {isAdmin && (
+          <Item onNavigate={onNavigate} to="/audit" icon={ScrollText} label="Audit log" />
+        )}
+        <Item onNavigate={onNavigate} to="/settings" icon={Settings} label="Settings" />
       </Section>
 
       {projectId && access.isMember && (
         <Section title="This project">
-          <ProjectItem to="/p/$projectId" projectId={projectId} icon={MapIcon} label="Map" exact />
           <ProjectItem
+            onNavigate={onNavigate}
+            to="/p/$projectId"
+            projectId={projectId}
+            icon={MapIcon}
+            label="Map"
+            exact
+          />
+          <ProjectItem
+            onNavigate={onNavigate}
             to="/p/$projectId/tasks"
             projectId={projectId}
             icon={ClipboardList}
@@ -52,6 +104,7 @@ export function AppSidebar() {
           />
           {access.canReview && (
             <ProjectItem
+              onNavigate={onNavigate}
               to="/p/$projectId/review"
               projectId={projectId}
               icon={ShieldCheck}
@@ -59,6 +112,7 @@ export function AppSidebar() {
             />
           )}
           <ProjectItem
+            onNavigate={onNavigate}
             to="/p/$projectId/progress"
             projectId={projectId}
             icon={LayoutDashboard}
@@ -67,18 +121,21 @@ export function AppSidebar() {
           {access.canManage && (
             <>
               <ProjectItem
+                onNavigate={onNavigate}
                 to="/p/$projectId/setup"
                 projectId={projectId}
                 icon={Layers}
                 label="Layers"
               />
               <ProjectItem
+                onNavigate={onNavigate}
                 to="/p/$projectId/setup"
                 projectId={projectId}
                 icon={Users}
                 label="Team"
               />
               <ProjectItem
+                onNavigate={onNavigate}
                 to="/p/$projectId/setup"
                 projectId={projectId}
                 icon={Settings}
@@ -88,7 +145,7 @@ export function AppSidebar() {
           )}
         </Section>
       )}
-    </aside>
+    </>
   );
 }
 
@@ -112,15 +169,18 @@ function Item({
   icon: Icon,
   label,
   exact,
+  onNavigate,
 }: {
   to: "/" | "/dashboard" | "/export" | "/audit" | "/users" | "/settings";
   icon: Icon;
   label: string;
   exact?: boolean;
+  onNavigate?: (() => void) | undefined;
 }) {
   return (
     <Link
       to={to}
+      onClick={onNavigate}
       activeOptions={{ exact: Boolean(exact) }}
       activeProps={{ className: activeClass }}
       className={itemClass}
@@ -137,6 +197,7 @@ function ProjectItem({
   icon: Icon,
   label,
   exact,
+  onNavigate,
 }: {
   to:
     | "/p/$projectId"
@@ -148,11 +209,13 @@ function ProjectItem({
   icon: Icon;
   label: string;
   exact?: boolean;
+  onNavigate?: (() => void) | undefined;
 }) {
   return (
     <Link
       to={to}
       params={{ projectId }}
+      onClick={onNavigate}
       activeOptions={{ exact: Boolean(exact) }}
       activeProps={{ className: activeClass }}
       className={itemClass}
