@@ -7,8 +7,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 
 export function TopBar() {
-  const { user, isAdmin, displayName, signOut, previewRole, canPreviewRoles, setPreviewRole } =
-    useAuth();
+  const {
+    user,
+    isAdmin,
+    isManager,
+    displayName,
+    signOut,
+    previewRole,
+    canPreviewRoles,
+    setPreviewRole,
+  } = useAuth();
   const { theme, toggle } = useTheme();
 
   return (
@@ -27,7 +35,7 @@ export function TopBar() {
         >
           Projects
         </Link>
-        {isAdmin && (
+        {(isAdmin || isManager) && (
           <Link
             to="/export"
             activeProps={{ className: "bg-secondary text-foreground" }}
@@ -51,10 +59,16 @@ export function TopBar() {
           </Button>
         )}
         {previewRole && <Badge className="text-[9px] uppercase">contributor view</Badge>}
-        {isAdmin && (
+        {isAdmin ? (
           <Badge variant="outline" className="text-[9px] uppercase">
-            admin
+            System administrator
           </Badge>
+        ) : (
+          isManager && (
+            <Badge variant="outline" className="text-[9px] uppercase">
+              Manager
+            </Badge>
+          )
         )}
         <Button
           variant="ghost"

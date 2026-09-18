@@ -76,7 +76,9 @@ function UsersPage() {
   if (!isAdmin) {
     return (
       <div className="p-6">
-        <p className="text-sm text-muted-foreground">Only an admin can manage accounts.</p>
+        <p className="text-sm text-muted-foreground">
+          Only a system administrator can manage accounts.
+        </p>
       </div>
     );
   }
@@ -309,7 +311,7 @@ function UsersPage() {
               )}
               {!levels.ownerIds.includes(profile.id) && levels.adminIds.includes(profile.id) && (
                 <Badge variant="outline" className="text-[9px] uppercase">
-                  Platform admin
+                  System administrator
                 </Badge>
               )}
               {levels.managerIds.includes(profile.id) && (
@@ -351,8 +353,8 @@ function UsersPage() {
                       }
                     >
                       {levels.adminIds.includes(profile.id)
-                        ? "Remove platform admin"
-                        : "Make platform admin"}
+                        ? "Remove system administrator"
+                        : "Make system administrator"}
                     </Button>
                   )}
                 </>

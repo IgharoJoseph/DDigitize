@@ -16,7 +16,22 @@ export type ProjectStatus = Database["public"]["Enums"]["project_status"];
 export type AreaStatus = Database["public"]["Enums"]["area_status"];
 
 /** Effective role of the signed-in person for one project. */
-export type EffectiveRole = "admin" | ProjectRole | "none";
+export type EffectiveRole = "system_admin" | "org_manager" | "owner" | ProjectRole | "none";
+
+/** Plain names for every level, used wherever a role is shown. */
+export const ROLE_LABELS: Record<EffectiveRole, string> = {
+  system_admin: "System administrator",
+  org_manager: "Manager",
+  owner: "Project owner",
+  manager: "Project manager",
+  supervisor: "Supervisor",
+  contributor: "Contributor",
+  none: "No access",
+};
+
+export function roleLabel(role: EffectiveRole | null | undefined): string {
+  return role ? (ROLE_LABELS[role] ?? role) : "No access";
+}
 
 /** Authority of each project role; you may only act on roles below your own. */
 export const ROLE_RANK: Record<ProjectRole, number> = {
@@ -28,7 +43,7 @@ export const ROLE_RANK: Record<ProjectRole, number> = {
 export const PROJECT_ROLES: { value: ProjectRole; label: string; blurb: string }[] = [
   {
     value: "manager",
-    label: "Manager",
+    label: "Project manager",
     blurb: "Sets up feature layers, imagery, work areas and the team. Reviews work.",
   },
   {
@@ -172,11 +187,7 @@ export async function addMember(input: {
  * had worked while the person kept their access.
  */
 export async function removeMember(id: string) {
-  const { data, error } = await supabase
-    .from("project_members")
-    .delete()
-    .eq("id", id)
-    .select("id");
+  const { data, error } = await supabase.from("project_members").delete().eq("id", id).select("id");
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) {
     throw new Error(

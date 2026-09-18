@@ -113,10 +113,10 @@ export function useProjectAccess(projectId: string): ProjectAccess {
   const role: EffectiveRole = previewingContributor
     ? "contributor"
     : isAdmin
-      ? "admin"
+      ? "system_admin"
       : isProjectOwner
-        ? "manager"
-        : (membership?.role ?? (isManager ? "manager" : "none"));
+        ? "owner"
+        : (membership?.role ?? (isManager ? "org_manager" : "none"));
 
   const authority = previewingContributor
     ? ROLE_RANK.contributor

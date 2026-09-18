@@ -28,6 +28,7 @@ import {
   pk,
   removeMember,
   unassignArea,
+  roleLabel,
   type ProjectRole,
 } from "@/lib/projects";
 
@@ -65,6 +66,9 @@ export function TeamTab({ projectId }: { projectId: string }) {
     role: "contributor",
   });
   const rolesYouCanGrant = PROJECT_ROLES.filter((role) => assignableRoles.includes(role.value));
+  /** You may only change a role that sits below your own authority. */
+  const canChange = (role: ProjectRole) =>
+    rolesYouCanGrant.length > 0 && authority > ROLE_RANK[role];
 
   const name = (id: string | null) => {
     const profile = profiles.find((item) => item.id === id);
@@ -104,6 +108,21 @@ export function TeamTab({ projectId }: { projectId: string }) {
       refreshTeam();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not assign that area");
+    }
+  };
+
+  /**
+   * Changing someone's project role. The database refuses a role at or above
+   * your own authority, so the refusal is surfaced rather than swallowed.
+   */
+  const changeRole = async (userId: string, role: ProjectRole) => {
+    if (!user) return;
+    try {
+      await addMember({ projectId, userId, role, addedBy: user.id });
+      refreshTeam();
+      toast.success(`Role changed to ${roleLabel(role)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "That role change was refused");
     }
   };
 
@@ -188,9 +207,29 @@ export function TeamTab({ projectId }: { projectId: string }) {
               <div key={member.id} className="rounded border border-border bg-card/60 p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-medium">{name(member.user_id)}</p>
-                  <Badge variant="outline" className="text-[9px] uppercase">
-                    {member.role}
-                  </Badge>
+                  {canChange(member.role) ? (
+                    <Select
+                      value={member.role}
+                      onValueChange={(value) =>
+                        void changeRole(member.user_id, value as ProjectRole)
+                      }
+                    >
+                      <SelectTrigger className="h-7 w-40 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rolesYouCanGrant.map((role) => (
+                          <SelectItem key={role.value} value={role.value}>
+                            {role.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge variant="outline" className="text-[9px] uppercase">
+                      {roleLabel(member.role)}
+                    </Badge>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"

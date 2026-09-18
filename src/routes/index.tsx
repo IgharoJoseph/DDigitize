@@ -11,7 +11,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import { createProject, fetchMyMemberships, fetchProjects, pk, type Project } from "@/lib/projects";
+import {
+  createProject,
+  fetchMyMemberships,
+  fetchProjects,
+  pk,
+  roleLabel,
+  type EffectiveRole,
+  type Project,
+} from "@/lib/projects";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -33,7 +41,7 @@ export const Route = createFileRoute("/")({
 });
 
 function ProjectsPage() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, isManager, loading } = useAuth();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", description: "" });
 
@@ -88,8 +96,13 @@ function ProjectsPage() {
     );
   }
 
-  const roleFor = (project: Project) =>
-    isAdmin ? "admin" : (memberships.find((row) => row.project_id === project.id)?.role ?? null);
+  const roleFor = (project: Project): EffectiveRole | null =>
+    isAdmin
+      ? "system_admin"
+      : project.owner_id === user?.id
+        ? "owner"
+        : (memberships.find((row) => row.project_id === project.id)?.role ??
+          (isManager ? "org_manager" : null));
 
   return (
     <div className="flex-1 overflow-y-auto bg-background">
@@ -101,7 +114,7 @@ function ProjectsPage() {
           </p>
         </div>
 
-        {isAdmin && (
+        {(isAdmin || isManager) && (
           <Card className="bg-panel">
             <CardHeader>
               <CardTitle className="text-base">New project</CardTitle>
@@ -157,11 +170,7 @@ function ProjectsPage() {
                     <Badge variant="outline" className="text-[9px] uppercase">
                       {project.status}
                     </Badge>
-                    {role && (
-                      <Badge className="text-[9px] uppercase">
-                        {role === "admin" ? "app admin" : role}
-                      </Badge>
-                    )}
+                    {role && <Badge className="text-[9px] uppercase">{roleLabel(role)}</Badge>}
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
@@ -175,7 +184,7 @@ function ProjectsPage() {
                       Progress
                     </Link>
                   </Button>
-                  {(role === "admin" || role === "manager") && (
+                  {(role === "system_admin" || role === "owner" || role === "manager") && (
                     <Button asChild size="sm" variant="outline">
                       <Link to="/p/$projectId/setup" params={{ projectId: project.id }}>
                         Set up

@@ -2,6 +2,7 @@ import { Link, Outlet, createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
+import { roleLabel } from "@/lib/projects";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useProjectAccess } from "@/hooks/useProjectRole";
@@ -71,7 +72,7 @@ function ProjectLayout() {
         <span className="text-xs text-muted-foreground">/</span>
         <span className="truncate text-xs font-medium">{project?.name ?? "Project"}</span>
         <Badge variant="outline" className="text-[9px] uppercase">
-          {access.role === "admin" ? "app admin" : access.role}
+          {roleLabel(access.role)}
         </Badge>
         <nav className="ml-auto flex items-center gap-1">
           <NavLink to="/p/$projectId" projectId={projectId} label="Map" exact />
