@@ -33,26 +33,41 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { useProjectAccess, useProjectAreas } from "@/hooks/useProjectRole";
-import { areaBoundary, areaForGeometry, type WorkArea } from "@/lib/projects";
+import { areaBoundary, areaForGeometry, fetchProject, pk, type WorkArea } from "@/lib/projects";
 import { blockingIssues, validateFeature } from "@/lib/validation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { basemapStyle, type BasemapId } from "@/lib/basemaps";
 import {
   createFeature,
-  deleteFeature,
+  defaultAttributes,
+  removeFeature,
+  restoreFeature,
   featureAttributes,
   featureGeometry,
   fetchCategories,
   fetchDatasets,
+  fetchFeatureCount,
   fetchFeatures,
   fetchProfiles,
+  layerDisplay,
   logActivity,
   qk,
   updateFeature,
   type Attributes,
+  type FeatureBounds,
   type FeaturePatch,
   type FeatureRow,
   type GeomType,
 } from "@/lib/data";
+
 import {
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
@@ -90,6 +105,9 @@ const DRAW_MODE_FOR_GEOMETRY: Record<string, string> = {
 };
 
 type UndoStep = { undo: () => Promise<void>; redo: () => Promise<void> };
+
+/** Above this many features the map reads only what the viewport covers. */
+const LARGE_PROJECT = 4000;
 
 /**
  * MapLibre's isStyleLoaded() also waits for every source's tiles, so a large
@@ -144,6 +162,9 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   const [cursor, setCursor] = useState<{ lng: number; lat: number } | null>(null);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [centreLat, setCentreLat] = useState(0);
+  // Current map bounds, used to read features by viewport on large projects.
+  const [viewport, setViewport] = useState<FeatureBounds | null>(null);
+
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   // Bumped once each new style finishes loading; the drawing layers live in the
@@ -157,6 +178,10 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   const [undoStack, setUndoStack] = useState<UndoStep[]>([]);
   const [redoStack, setRedoStack] = useState<UndoStep[]>([]);
 
+  // Removing work always asks for a reason, which is kept on the record.
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeReason, setRemoveReason] = useState("");
+
   const categoriesQuery = useQuery({
     queryKey: qk.categories(projectId),
     queryFn: () => fetchCategories(projectId),
@@ -165,13 +190,42 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     queryKey: qk.datasets(projectId),
     queryFn: () => fetchDatasets(projectId),
   });
+  // Large projects are read by viewport instead of whole-project, using the
+  // stored bounding boxes and their index.
+  const featureCountQuery = useQuery({
+    queryKey: [...qk.features(projectId), "count"],
+    queryFn: () => fetchFeatureCount(projectId),
+    staleTime: 60_000,
+  });
+  const largeProject = (featureCountQuery.data ?? 0) > LARGE_PROJECT;
+  const loadBounds = largeProject ? viewport : null;
+  const boundsKey = loadBounds
+    ? [loadBounds.west, loadBounds.south, loadBounds.east, loadBounds.north]
+        .map((value) => value.toFixed(2))
+        .join(",")
+    : "all";
   const featuresQuery = useQuery({
-    queryKey: qk.features(projectId),
-    queryFn: () => fetchFeatures(projectId),
+    queryKey: [...qk.features(projectId), boundsKey],
+    queryFn: () => fetchFeatures(projectId, loadBounds),
+    enabled: !largeProject || Boolean(loadBounds),
+    placeholderData: (previous) => previous,
   });
   const profilesQuery = useQuery({ queryKey: qk.profiles, queryFn: fetchProfiles });
+  const projectQuery = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => fetchProject(projectId),
+  });
 
-  const categories = categoriesQuery.data ?? [];
+  const allCategories = categoriesQuery.data ?? [];
+  // Retired layers stay on existing features but are no longer offered, and a
+  // layer hidden from contributors is only listed for reviewers/managers.
+  const categories = useMemo(
+    () =>
+      allCategories.filter(
+        (item) => item.visible_to_contributors || access.canReview || access.canManage,
+      ),
+    [allCategories, access.canReview, access.canManage],
+  );
   const datasets = useMemo(
     () => (datasetsQuery.data ?? []).filter((item) => item.is_published || access.canManage),
     [datasetsQuery.data, access.canManage],
@@ -179,6 +233,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   const features = featuresQuery.data ?? [];
   const profiles = profilesQuery.data ?? [];
   const areas = areasQuery.data ?? [];
+  const projectBoundary = (projectQuery.data?.boundary ?? null) as Geometry | null;
   const myAreas = useMemo(
     () =>
       access.restrictedToAssignments
@@ -187,13 +242,31 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     [areas, access.restrictedToAssignments, access.assignedAreaIds],
   );
 
+  // Contributors may only draw inside a work area assigned to them. Saying so up
+  // front beats letting them trace a shape the database will refuse. The
+  // database guard stays exactly as it is.
+  const drawBlockedReason = useMemo(() => {
+    if (!access.restrictedToAssignments) return null;
+    if (areas.length === 0)
+      return "This project has no work areas yet. A manager needs to create one and assign it to you before you can digitize.";
+    if (myAreas.length === 0)
+      return "No work area is assigned to you yet. Ask a manager or supervisor to assign one.";
+    return null;
+  }, [access.restrictedToAssignments, areas.length, myAreas.length]);
+
   const dataset = datasets.find((item) => item.id === datasetId) ?? null;
   const selected = features.find((item) => item.id === selectedId) ?? null;
-  // Approved features are locked for everyone but reviewers.
+  const selectedCategory = allCategories.find((item) => item.id === selected?.category_id) ?? null;
+  // Approved features are locked for everyone but reviewers; another person's
+  // feature is editable only where a manager allowed peer editing on the layer.
+  // The database enforces the same rule, so this only shapes the interface.
   const canEditSelected = Boolean(
     selected &&
     user &&
-    (access.canReview || (selected.created_by === user.id && selected.status !== "verified")),
+    (access.canReview ||
+      (selected.status !== "verified" &&
+        access.can("edit") &&
+        (selected.created_by === user.id || selectedCategory?.editable_by_peers === true))),
   );
 
   const invalidateFeatures = useCallback(() => {
@@ -211,36 +284,100 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     if (best) setDatasetId(best.id);
   }, [datasets, datasetId]);
 
+  // One "started work" entry per person per session, for the timeline.
+  useEffect(() => {
+    if (!user) return;
+    const sessionKey = `ddigitize.started.${projectId}`;
+    try {
+      if (window.sessionStorage.getItem(sessionKey)) return;
+      window.sessionStorage.setItem(sessionKey, "1");
+    } catch {
+      return;
+    }
+    void logActivity(projectId, "work.started", "Opened the project to digitize");
+  }, [projectId, user]);
+
   /* ---------------- autosave ---------------- */
+
+  // Unsaved edits are mirrored in this browser so a crash, a closed tab or a
+  // dropped connection does not lose them: they are replayed on the next visit.
+  const recoveryKey = `ddigitize.unsaved.${projectId}`;
+
+  const rememberPending = useCallback(() => {
+    try {
+      const entries = Array.from(pendingRef.current.entries());
+      if (entries.length === 0) window.localStorage.removeItem(recoveryKey);
+      else window.localStorage.setItem(recoveryKey, JSON.stringify(entries));
+    } catch {
+      /* private browsing or a full store: autosave still works normally */
+    }
+  }, [recoveryKey]);
 
   const flush = useCallback(async () => {
     const entries = Array.from(pendingRef.current.entries());
-    pendingRef.current.clear();
     if (entries.length === 0) return;
     setSaveStatus("saving");
     try {
       for (const [id, patch] of entries) {
         await updateFeature(id, patch);
+        // Only drop an edit once the database has confirmed it.
+        pendingRef.current.delete(id);
       }
+      rememberPending();
       setSaveStatus("saved");
       invalidateFeatures();
       setTimeout(() => setSaveStatus((current) => (current === "saved" ? "idle" : current)), 2500);
     } catch (error) {
+      rememberPending();
       setSaveStatus("error");
       toast.error(error instanceof Error ? error.message : "Could not save this edit");
     }
-  }, [invalidateFeatures]);
+  }, [invalidateFeatures, rememberPending]);
 
   const queuePatch = useCallback(
     (id: string, patch: FeaturePatch) => {
       const merged = { ...(pendingRef.current.get(id) ?? {}), ...patch };
       pendingRef.current.set(id, merged);
+      rememberPending();
       setSaveStatus("saving");
       if (flushTimer.current) clearTimeout(flushTimer.current);
       flushTimer.current = setTimeout(() => void flush(), 700);
     },
-    [flush],
+    [flush, rememberPending],
   );
+
+  // Replay anything left unsaved from a previous visit, once.
+  const recoveredRef = useRef(false);
+  useEffect(() => {
+    if (recoveredRef.current || !user) return;
+    recoveredRef.current = true;
+    let stored: [string, FeaturePatch][] = [];
+    try {
+      stored = JSON.parse(window.localStorage.getItem(recoveryKey) ?? "[]") as [
+        string,
+        FeaturePatch,
+      ][];
+    } catch {
+      stored = [];
+    }
+    if (!Array.isArray(stored) || stored.length === 0) return;
+    for (const [id, patch] of stored) pendingRef.current.set(id, patch);
+    toast.info("Recovering edits that had not been saved yet.");
+    void flush();
+  }, [flush, recoveryKey, user]);
+
+  // Save on the way out, so leaving the page does not strand an edit.
+  useEffect(() => {
+    const onHide = () => {
+      if (pendingRef.current.size > 0) void flush();
+    };
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [flush]);
 
   const pushUndo = useCallback((step: UndoStep) => {
     setUndoStack((stack) => [...stack.slice(-49), step]);
@@ -276,10 +413,24 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       setCentreLat(lngLatOrDefault(map.getCenter().lng, map.getCenter().lat)[1]);
     };
     map.on("move", syncView);
+    // Viewport bounds, padded a little so panning does not reveal empty edges.
+    const syncViewport = () => {
+      const bounds = map.getBounds();
+      const padLng = (bounds.getEast() - bounds.getWest()) * 0.25;
+      const padLat = (bounds.getNorth() - bounds.getSouth()) * 0.25;
+      setViewport({
+        west: Math.max(bounds.getWest() - padLng, -180),
+        south: Math.max(bounds.getSouth() - padLat, -90),
+        east: Math.min(bounds.getEast() + padLng, 180),
+        north: Math.min(bounds.getNorth() + padLat, 90),
+      });
+    };
+    map.on("moveend", syncViewport);
     // "idle" (not "load") means the style is fully parsed, so addSource/addLayer
     // and the drawing adapter cannot hit "Style is not done loading".
     map.once("idle", () => {
       syncView();
+      syncViewport();
       setMapReady(true);
     });
 
@@ -381,7 +532,13 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
           filter: ["==", ["geometry-type"], "Polygon"],
           paint: {
             "fill-color": ["get", "color"],
-            "fill-opacity": ["case", ["get", "isSelected"], 0.45, 0.22],
+            // Per-layer opacity and width come from the layer's display settings.
+            "fill-opacity": [
+              "case",
+              ["get", "isSelected"],
+              0.45,
+              ["coalesce", ["get", "fillOpacity"], 0.22],
+            ],
           },
         });
         map.addLayer({
@@ -391,7 +548,12 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
           filter: ["==", ["geometry-type"], "Polygon"],
           paint: {
             "line-color": ["get", "color"],
-            "line-width": ["case", ["get", "isSelected"], 3, 1.5],
+            "line-width": [
+              "case",
+              ["get", "isSelected"],
+              3,
+              ["coalesce", ["get", "lineWidth"], 1.5],
+            ],
           },
         });
         map.addLayer({
@@ -401,7 +563,12 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
           filter: ["==", ["geometry-type"], "LineString"],
           paint: {
             "line-color": ["get", "color"],
-            "line-width": ["case", ["get", "isSelected"], 5, 2.5],
+            "line-width": [
+              "case",
+              ["get", "isSelected"],
+              5,
+              ["*", ["coalesce", ["get", "lineWidth"], 1.5], 1.7],
+            ],
           },
         });
         map.addLayer({
@@ -416,6 +583,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
             "circle-stroke-color": "#ffffff",
           },
         });
+
         // The data effects below only run once the sources exist, so they are
         // re-run whenever the overlay sources are (re)created.
         setOverlayEpoch((epoch) => epoch + 1);
@@ -583,7 +751,10 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
 
   const visibleFeatures = useMemo(() => {
     const term = search.trim().toLowerCase();
+    const allowed = new Set(categories.map((item) => item.id));
     return features.filter((row) => {
+      // A layer hidden from contributors is not drawn for them either.
+      if (row.category_id && !allowed.has(row.category_id)) return false;
       if (row.category_id && hidden.has(row.category_id)) return false;
       if (contributorFilter !== "all" && row.created_by !== contributorFilter) return false;
       if (!term) return true;
@@ -605,11 +776,13 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     const source = map.getSource(FEATURE_SOURCE);
     if (!source || !("setData" in source)) return;
 
+    const zoomNow = map.getZoom();
     const collection: Feature[] = visibleFeatures
       .filter((row) => row.id !== editingRef.current)
       .filter((row) => isValidGeometry(row.geometry))
       .map((row) => {
         const category = categories.find((item) => item.id === row.category_id);
+        const display = layerDisplay(category);
         return {
           type: "Feature",
           // No GeoJSON "id": MapLibre only accepts numeric ids, and a UUID keeps
@@ -620,15 +793,21 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
             color: category?.color ?? "#94a3b8",
             isSelected: row.id === selectedId,
             status: row.status,
+            fillOpacity: display.fillOpacity,
+            lineWidth: display.lineWidth,
+            minZoom: display.minZoom,
           },
         } satisfies Feature;
-      });
+      })
+      // Layers configured to appear from a given zoom stay out of the source
+      // until then, which keeps big projects light at overview zooms.
+      .filter((item) => zoomNow >= Number(item.properties?.["minZoom"] ?? 0));
 
     (source as { setData: (data: unknown) => void }).setData({
       type: "FeatureCollection",
       features: collection,
     });
-  }, [visibleFeatures, categories, selectedId, mapReady, styleEpoch, overlayEpoch]);
+  }, [visibleFeatures, categories, selectedId, mapReady, styleEpoch, overlayEpoch, zoom]);
 
   // Work areas: the ones assigned to this person read as open, the rest dimmed.
   useEffect(() => {
@@ -781,18 +960,26 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       if (!user) throw new Error("Sign in to digitize features");
       const area = areaForGeometry(geometry, areas);
       const category = categories.find((item) => item.id === drawCategoryId) ?? null;
+      if (category && !category.is_active) {
+        throw new Error(`${category.name} is no longer in use, so nothing was saved.`);
+      }
+      // Default values configured on the layer's fields are filled in up front.
+      const attributes = defaultAttributes(category);
 
-      // Live checks: work area, self-intersection, duplicates, overlap rules.
+      // Live checks: geometry type, size, coordinates, project and work-area
+      // boundaries, self-intersection, duplicates, overlap and attribute rules.
       const issues = validateFeature({
         geometry,
         category,
-        attributes: {},
+        attributes,
         areas,
         assignedAreaIds: access.assignedAreaIds,
         restrictedToAssignments: access.restrictedToAssignments,
         containingArea: area,
         siblings: features,
+        projectBoundary,
       });
+
       const blocking = blockingIssues(issues);
       if (blocking.length > 0) throw new Error(blocking.map((issue) => issue.message).join(" "));
       for (const issue of issues) {
@@ -805,7 +992,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
         categoryId: category?.id ?? null,
         datasetId: dataset?.id ?? null,
         geometry,
-        attributes: {},
+        attributes,
         areaSqm: geometryArea(geometry),
         lengthM: geometryLength(geometry),
         createdBy: user.id,
@@ -819,7 +1006,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       setSaveStatus("saved");
       pushUndo({
         undo: async () => {
-          await deleteFeature(row.id);
+          await removeFeature(row.id, "Undone straight after digitizing");
           invalidateFeatures();
         },
         redo: async () => {
@@ -924,7 +1111,12 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       toast.error("Sign in to start digitizing.");
       return;
     }
+    if (next !== "pan" && next !== "select" && drawBlockedReason) {
+      toast.error(drawBlockedReason);
+      return;
+    }
     setTool(next);
+
     if (next !== "pan" && next !== "select") {
       const wanted = GEOM_FOR_TOOL[next];
       const current = categories.find((item) => item.id === drawCategoryId);
@@ -958,36 +1150,30 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     });
   };
 
-  const removeSelected = async () => {
+  // Work is never erased outright: it is marked as removed with a reason, so the
+  // organisation keeps a record and a manager can bring it back.
+  const confirmRemove = async (reason: string) => {
     if (!selected || !canEditSelected || !user) return;
     const row = selected;
     try {
-      await deleteFeature(row.id);
-      await logActivity(projectId, "deleted", "Removed a feature", undefined);
+      await removeFeature(row.id, reason);
+      setRemoveOpen(false);
+      setRemoveReason("");
       setSelectedId(null);
       invalidateFeatures();
+      toast.success("Removed and recorded. A manager can restore it.");
       pushUndo({
         undo: async () => {
-          await createFeature({
-            projectId,
-            workAreaId: row.work_area_id,
-            categoryId: row.category_id,
-            datasetId: row.dataset_id,
-            geometry: featureGeometry(row),
-            attributes: featureAttributes(row),
-            areaSqm: Number(row.area_sqm),
-            lengthM: Number(row.length_m),
-            createdBy: user.id,
-          });
+          await restoreFeature(row.id);
           invalidateFeatures();
         },
         redo: async () => {
-          await deleteFeature(row.id);
+          await removeFeature(row.id, reason);
           invalidateFeatures();
         },
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not delete this feature");
+      toast.error(error instanceof Error ? error.message : "Could not remove this feature");
     }
   };
 
@@ -1044,8 +1230,10 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   };
 
   const drawCategories = useMemo(() => {
-    if (tool === "pan" || tool === "select") return categories;
-    return categories.filter((item) => item.geometry_type === GEOM_FOR_TOOL[tool]);
+    // Retired layers stay visible on old features but cannot be drawn into.
+    const active = categories.filter((item) => item.is_active);
+    if (tool === "pan" || tool === "select") return active;
+    return active.filter((item) => item.geometry_type === GEOM_FOR_TOOL[tool]);
   }, [categories, tool]);
 
   useEffect(() => {
@@ -1144,9 +1332,15 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
               canRedo={redoStack.length > 0}
               onUndo={() => void runUndo()}
               onRedo={() => void runRedo()}
-              onDelete={() => void removeSelected()}
+              onDelete={() => setRemoveOpen(true)}
               canDelete={canEditSelected}
+              drawBlockedReason={drawBlockedReason}
             />
+            {drawBlockedReason && (
+              <p className="pointer-events-auto max-w-64 rounded-md border border-border bg-panel/95 p-2 text-xs text-muted-foreground shadow-lg backdrop-blur">
+                {drawBlockedReason}
+              </p>
+            )}
           </div>
 
           {selected && (
@@ -1159,7 +1353,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
                 canReview={access.canReview}
                 workAreas={areas}
                 onPatch={patchSelected}
-                onDelete={() => void removeSelected()}
+                onDelete={() => setRemoveOpen(true)}
                 onClose={() => setSelectedId(null)}
                 onZoom={zoomToSelected}
               />
@@ -1167,6 +1361,38 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
           )}
         </div>
       </div>
+
+      <Dialog open={removeOpen} onOpenChange={setRemoveOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove this feature?</DialogTitle>
+            <DialogDescription>
+              It comes off the map but stays on the record, so a manager can restore it. Tell us why
+              it is being removed.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            className="min-h-20 text-sm"
+            maxLength={300}
+            placeholder="Reason for removing this feature"
+            value={removeReason}
+            onChange={(event) => setRemoveReason(event.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRemoveOpen(false)}>
+              Keep it
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={removeReason.trim().length < 3}
+              onClick={() => void confirmRemove(removeReason.trim())}
+            >
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <StatusBar
         cursor={cursor}

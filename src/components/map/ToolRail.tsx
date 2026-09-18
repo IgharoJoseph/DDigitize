@@ -27,6 +27,11 @@ type Props = {
   onRedo: () => void;
   onDelete: () => void;
   canDelete: boolean;
+  /**
+   * Why new shapes cannot be drawn right now (no work area assigned, for
+   * example). Panning, selecting and reviewing stay available.
+   */
+  drawBlockedReason?: string | null;
 };
 
 const TOOLS: { id: Tool; label: string; icon: LucideIcon; hint: string }[] = [
@@ -53,30 +58,37 @@ export function ToolRail({
   onRedo,
   onDelete,
   canDelete,
+  drawBlockedReason = null,
 }: Props) {
   return (
     <div className="pointer-events-auto flex flex-col gap-1 rounded-md border border-border bg-panel/95 p-1 shadow-lg backdrop-blur">
-      {TOOLS.map(({ id, label, icon: Icon, hint }) => (
-        <Tooltip key={id}>
-          <TooltipTrigger asChild>
-            <Button
-              variant={tool === id ? "default" : "ghost"}
-              size="icon"
-              className={cn("size-9", tool === id && "shadow-inner")}
-              disabled={disabled && id !== "pan"}
-              onClick={() => onTool(id)}
-              aria-label={label}
-              aria-pressed={tool === id}
-            >
-              <Icon className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p className="font-medium">{label}</p>
-            <p className="text-xs text-muted-foreground">{hint}</p>
-          </TooltipContent>
-        </Tooltip>
-      ))}
+      {TOOLS.map(({ id, label, icon: Icon, hint }) => {
+        const isDraw = id !== "pan" && id !== "select";
+        const blocked = isDraw && Boolean(drawBlockedReason);
+        return (
+          <Tooltip key={id}>
+            <TooltipTrigger asChild>
+              <Button
+                variant={tool === id ? "default" : "ghost"}
+                size="icon"
+                className={cn("size-9", tool === id && "shadow-inner")}
+                disabled={(disabled && id !== "pan") || blocked}
+                onClick={() => onTool(id)}
+                aria-label={label}
+                aria-pressed={tool === id}
+              >
+                <Icon className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p className="font-medium">{label}</p>
+              <p className="max-w-56 text-xs text-muted-foreground">
+                {blocked ? drawBlockedReason : hint}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
 
       <Separator className="my-1" />
 

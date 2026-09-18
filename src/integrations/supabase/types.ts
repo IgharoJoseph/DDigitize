@@ -143,31 +143,49 @@ export type Database = {
       category_fields: {
         Row: {
           category_id: string
+          default_value: string | null
           field_type: Database["public"]["Enums"]["field_type"]
+          help_text: string | null
           id: string
           key: string
           label: string
+          max_length: number | null
+          max_value: number | null
+          min_value: number | null
           options: string[]
+          pattern: string | null
           required: boolean
           sort_order: number
         }
         Insert: {
           category_id: string
+          default_value?: string | null
           field_type?: Database["public"]["Enums"]["field_type"]
+          help_text?: string | null
           id?: string
           key: string
           label: string
+          max_length?: number | null
+          max_value?: number | null
+          min_value?: number | null
           options?: string[]
+          pattern?: string | null
           required?: boolean
           sort_order?: number
         }
         Update: {
           category_id?: string
+          default_value?: string | null
           field_type?: Database["public"]["Enums"]["field_type"]
+          help_text?: string | null
           id?: string
           key?: string
           label?: string
+          max_length?: number | null
+          max_value?: number | null
+          min_value?: number | null
           options?: string[]
+          pattern?: string | null
           required?: boolean
           sort_order?: number
         }
@@ -188,13 +206,21 @@ export type Database = {
           color: string
           created_at: string
           description: string | null
+          display_config: Json
+          editable_by_peers: boolean
+          forbid_self_intersection: boolean
           geometry_type: Database["public"]["Enums"]["geom_type"]
           id: string
+          is_active: boolean
+          max_payload_kb: number
+          max_vertices: number
           name: string
           overlap_severity: string
           project_id: string | null
           require_within_area: boolean
+          require_within_project: boolean
           sort_order: number
+          visible_to_contributors: boolean
         }
         Insert: {
           allow_overlap?: boolean
@@ -202,13 +228,21 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
+          display_config?: Json
+          editable_by_peers?: boolean
+          forbid_self_intersection?: boolean
           geometry_type: Database["public"]["Enums"]["geom_type"]
           id?: string
+          is_active?: boolean
+          max_payload_kb?: number
+          max_vertices?: number
           name: string
           overlap_severity?: string
           project_id?: string | null
           require_within_area?: boolean
+          require_within_project?: boolean
           sort_order?: number
+          visible_to_contributors?: boolean
         }
         Update: {
           allow_overlap?: boolean
@@ -216,13 +250,21 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
+          display_config?: Json
+          editable_by_peers?: boolean
+          forbid_self_intersection?: boolean
           geometry_type?: Database["public"]["Enums"]["geom_type"]
           id?: string
+          is_active?: boolean
+          max_payload_kb?: number
+          max_vertices?: number
           name?: string
           overlap_severity?: string
           project_id?: string | null
           require_within_area?: boolean
+          require_within_project?: boolean
           sort_order?: number
+          visible_to_contributors?: boolean
         }
         Relationships: [
           {
@@ -279,14 +321,90 @@ export type Database = {
           },
         ]
       }
-      features: {
+      feature_versions: {
         Row: {
           area_sqm: number
           attributes: Json
           category_id: string | null
+          change_kind: string
+          changed_by: string | null
+          created_at: string
+          feature_id: string
+          geometry: Json
+          id: string
+          length_m: number
+          project_id: string
+          review_note: string | null
+          status: Database["public"]["Enums"]["review_status"]
+          version: number
+          work_area_id: string | null
+        }
+        Insert: {
+          area_sqm?: number
+          attributes?: Json
+          category_id?: string | null
+          change_kind: string
+          changed_by?: string | null
+          created_at?: string
+          feature_id: string
+          geometry: Json
+          id?: string
+          length_m?: number
+          project_id: string
+          review_note?: string | null
+          status: Database["public"]["Enums"]["review_status"]
+          version: number
+          work_area_id?: string | null
+        }
+        Update: {
+          area_sqm?: number
+          attributes?: Json
+          category_id?: string | null
+          change_kind?: string
+          changed_by?: string | null
+          created_at?: string
+          feature_id?: string
+          geometry?: Json
+          id?: string
+          length_m?: number
+          project_id?: string
+          review_note?: string | null
+          status?: Database["public"]["Enums"]["review_status"]
+          version?: number
+          work_area_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_versions_feature_id_fkey"
+            columns: ["feature_id"]
+            isOneToOne: false
+            referencedRelation: "features"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feature_versions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      features: {
+        Row: {
+          area_sqm: number
+          attributes: Json
+          bbox_max_lat: number | null
+          bbox_max_lng: number | null
+          bbox_min_lat: number | null
+          bbox_min_lng: number | null
+          category_id: string | null
           created_at: string
           created_by: string | null
           dataset_id: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deletion_reason: string | null
           geometry: Json
           id: string
           length_m: number
@@ -296,15 +414,24 @@ export type Database = {
           reviewed_by: string | null
           status: Database["public"]["Enums"]["review_status"]
           updated_at: string
+          updated_by: string | null
+          version: number
           work_area_id: string | null
         }
         Insert: {
           area_sqm?: number
           attributes?: Json
+          bbox_max_lat?: number | null
+          bbox_max_lng?: number | null
+          bbox_min_lat?: number | null
+          bbox_min_lng?: number | null
           category_id?: string | null
           created_at?: string
           created_by?: string | null
           dataset_id?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
           geometry: Json
           id?: string
           length_m?: number
@@ -314,15 +441,24 @@ export type Database = {
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["review_status"]
           updated_at?: string
+          updated_by?: string | null
+          version?: number
           work_area_id?: string | null
         }
         Update: {
           area_sqm?: number
           attributes?: Json
+          bbox_max_lat?: number | null
+          bbox_max_lng?: number | null
+          bbox_min_lat?: number | null
+          bbox_min_lng?: number | null
           category_id?: string | null
           created_at?: string
           created_by?: string | null
           dataset_id?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
           geometry?: Json
           id?: string
           length_m?: number
@@ -332,6 +468,8 @@ export type Database = {
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["review_status"]
           updated_at?: string
+          updated_by?: string | null
+          version?: number
           work_area_id?: string | null
         }
         Relationships: [
@@ -609,6 +747,16 @@ export type Database = {
         Args: { _project_id: string; _user_id: string; _work_area_id: string }
         Returns: boolean
       }
+      can_edit_feature: {
+        Args: {
+          _category_id: string
+          _created_by: string
+          _project_id: string
+          _user_id: string
+          _work_area_id: string
+        }
+        Returns: boolean
+      }
       can_manage_project: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
@@ -641,6 +789,12 @@ export type Database = {
           under_review: number
         }[]
       }
+      geometry_bbox: { Args: { _geom: Json }; Returns: number[] }
+      geometry_matches_type: {
+        Args: { _geom: Json; _kind: Database["public"]["Enums"]["geom_type"] }
+        Returns: boolean
+      }
+      geometry_vertex_count: { Args: { _geom: Json }; Returns: number }
       geometry_within_boundary: {
         Args: { _boundary: Json; _geom: Json }
         Returns: boolean

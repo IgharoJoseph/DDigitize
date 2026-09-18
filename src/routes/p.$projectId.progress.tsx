@@ -39,7 +39,7 @@ function ProgressPage() {
   const profilesQuery = useQuery({ queryKey: qk.profiles, queryFn: fetchProfiles });
   const activityQuery = useQuery({
     queryKey: qk.activity(projectId),
-    queryFn: () => fetchActivity(projectId),
+    queryFn: () => fetchActivity(projectId, 150),
     enabled: Boolean(user),
   });
   const assignmentsQuery = useQuery({
@@ -88,6 +88,30 @@ function ProgressPage() {
   );
 
   const sentBack = features.filter((row) => row.status === "needs_revision");
+
+  // A timeline of meaningful production events. Repeats of the same event in a
+  // row are folded together, so a busy hour of digitizing reads as one line.
+  const timeline = useMemo(() => {
+    const mine = teamView ? activity : activity.filter((row) => row.user_id === user?.id);
+    const items: {
+      id: string;
+      at: string;
+      userId: string | null;
+      text: string;
+      repeats: number;
+    }[] = [];
+    for (const row of mine) {
+      const text = eventText(row.action, row.detail);
+      if (!text) continue;
+      const last = items[items.length - 1];
+      if (last && last.text === text && last.userId === row.user_id) {
+        last.repeats += 1;
+        continue;
+      }
+      items.push({ id: row.id, at: row.created_at, userId: row.user_id, text, repeats: 1 });
+    }
+    return items;
+  }, [activity, teamView, user?.id]);
 
   return (
     <div className="flex-1 overflow-y-auto bg-background">
@@ -233,26 +257,40 @@ function ProgressPage() {
           </CardContent>
         </Card>
 
-        {teamView && (
-          <Card className="bg-panel">
-            <CardHeader>
-              <CardTitle className="text-base">Recent activity</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1">
-              {activity.map((row) => (
-                <p key={row.id} className="text-xs text-muted-foreground">
-                  <span className="text-foreground">{name(row.user_id)}</span> {row.detail}
-                  <span className="readout ml-2 text-[10px]">
-                    {new Date(row.created_at).toLocaleString()}
-                  </span>
-                </p>
-              ))}
-              {activity.length === 0 && (
-                <p className="text-sm text-muted-foreground">No activity yet.</p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        <Card className="bg-panel">
+          <CardHeader>
+            <CardTitle className="text-base">Production timeline</CardTitle>
+            <CardDescription>
+              {teamView
+                ? "Meaningful production events on this project, newest first."
+                : "Your own production events, newest first."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {timeline.map((entry) => (
+              <div key={entry.id} className="flex gap-3 text-xs">
+                <span className="readout w-24 shrink-0 text-muted-foreground">
+                  {new Date(entry.at).toLocaleString([], {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <span className="min-w-0 flex-1">
+                  {teamView && <span className="font-medium">{name(entry.userId)} · </span>}
+                  {entry.text}
+                  {entry.repeats > 1 && (
+                    <span className="text-muted-foreground"> (×{entry.repeats})</span>
+                  )}
+                </span>
+              </div>
+            ))}
+            {timeline.length === 0 && (
+              <p className="text-sm text-muted-foreground">No production events yet.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -275,4 +313,45 @@ function Metric({ label, value }: { label: string; value: string }) {
       </CardContent>
     </Card>
   );
+}
+/**
+ * Turns a recorded event into a plain sentence. Anything that is not a
+ * meaningful production event is skipped.
+ */
+function eventText(action: string, detail: string | null): string | null {
+  switch (action) {
+    case "work.started":
+      return "Started work";
+    case "created":
+    case "feature.created":
+      return "Created a feature";
+    case "feature.edited":
+      return "Modified a feature";
+    case "feature.deleted":
+    case "deleted":
+      return `Removed a feature${detail ? ` — ${detail}` : ""}`;
+    case "feature.restored":
+    case "feature.restore":
+      return "Restored removed work";
+    case "feature.purged":
+      return "Permanently removed a feature";
+    case "review.under_review":
+      return "Started reviewing";
+    case "review.verified":
+    case "verified":
+      return "Approved work";
+    case "review.needs_revision":
+    case "sent back":
+      return `Requested changes${detail ? ` — ${detail}` : ""}`;
+    case "feature.status_changed":
+      return detail?.includes("-> submitted")
+        ? "Submitted for review"
+        : detail?.includes("-> draft")
+          ? "Reopened as a draft"
+          : detail
+            ? `Status ${detail}`
+            : "Status changed";
+    default:
+      return null;
+  }
 }

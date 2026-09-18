@@ -2,8 +2,14 @@ import { addProtocol, setWorkerUrl } from "maplibre-gl";
 // MapLibre derives its worker URL from its own module URL, which breaks once the
 // bundler rewrites that path (dev pre-bundling, production chunks). Without a
 // worker, GeoJSON sources never tile, so digitized shapes and work areas stay
-// invisible. Pointing it at the real worker file fixes that everywhere.
-import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
+// invisible while raster imagery still draws.
+//
+// "?worker&url" makes the bundler compile the worker WITH its dependencies and
+// hand back the URL of that bundle. Plain "?url" only copies the single file,
+// whose relative import of maplibre-gl-shared.mjs then 404s and kills the
+// worker again — which is exactly why shapes sometimes did not appear.
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+
 import { PMTiles, Protocol } from "pmtiles";
 
 import { safeBounds, safeLngLat } from "./geo";

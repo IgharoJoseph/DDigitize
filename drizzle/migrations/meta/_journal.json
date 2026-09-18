@@ -92,6 +92,20 @@
       "when": 1789745287081,
       "tag": "0012_work_area_lifecycle_history_and_spatial_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789746246013,
+      "tag": "0013_feature_extraction_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789747406717,
+      "tag": "0014_workflow_versions_soft_delete",
+      "breakpoints": true
     }
   ]
 }
