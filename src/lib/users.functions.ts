@@ -121,6 +121,48 @@ export const resetUserPassword = createServerFn({ method: "POST" })
     return { password };
   });
 
+const changeInput = z.object({
+  currentPassword: z.string().min(1, { message: "Enter your current password" }).max(72),
+  newPassword: z.string().min(8, { message: "Use at least 8 characters" }).max(72),
+});
+
+/**
+ * Self-service password change. The current password is checked server-side
+ * against the signed-in account, so the browser session is never disturbed and
+ * username-only accounts work the same as email ones.
+ */
+export const changeMyPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => changeInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { createClient } = await import("@supabase/supabase-js");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: found, error: lookupError } = await supabaseAdmin.auth.admin.getUserById(
+      context.userId,
+    );
+    if (lookupError) throw new Error(lookupError.message);
+    const email = found.user?.email;
+    if (!email) throw new Error("This account has no email address to verify against");
+
+    const client = createClient(
+      process.env["SUPABASE_URL"]!,
+      process.env["SUPABASE_PUBLISHABLE_KEY"]!,
+      { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
+    );
+    const { error: verifyError } = await client.auth.signInWithPassword({
+      email,
+      password: data.currentPassword,
+    });
+    if (verifyError) throw new Error("Your current password is incorrect");
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
+      password: data.newPassword,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
 const signInInput = z.object({
   username: z.string().trim().min(1).max(40).transform(normalizeUsername),
   password: z.string().min(1).max(72),

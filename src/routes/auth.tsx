@@ -125,6 +125,26 @@ function AuthPage() {
     }
   };
 
+  const sendReset = async () => {
+    const email = identifier.trim().toLowerCase();
+    if (!email.includes("@")) {
+      toast.error("Enter the email address on your account, then tap this again");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success("Check your email for a link to set a new password");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send the reset email");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const googleSignIn = async () => {
     setBusy(true);
     const { error } = await supabase.auth.signInWithOAuth({
@@ -218,6 +238,16 @@ function AuthPage() {
             <Button type="submit" className="w-full" disabled={busy}>
               {mode === "signup" ? "Create account" : "Sign in"}
             </Button>
+            {mode === "signin" && (
+              <button
+                type="button"
+                className="w-full text-[12px] text-muted-foreground underline-offset-2 hover:underline"
+                disabled={busy}
+                onClick={() => void sendReset()}
+              >
+                Forgot your password?
+              </button>
+            )}
           </form>
 
           <div className="flex items-center gap-2 text-[11px] uppercase text-muted-foreground">

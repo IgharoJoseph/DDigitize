@@ -14,6 +14,7 @@ import { Route as AuditRouteImport } from './routes/audit'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ExportRouteImport } from './routes/export'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as PProjectIdRouteImport } from './routes/p.$projectId'
@@ -46,6 +47,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const ExportRoute = ExportRouteImport.update({
   id: '/export',
   path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/export': typeof ExportRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/users': typeof UsersRoute
   '/p/$projectId': typeof PProjectIdRouteWithChildren
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/export': typeof ExportRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/users': typeof UsersRoute
   '/p/$projectId/progress': typeof PProjectIdProgressRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/export': typeof ExportRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/users': typeof UsersRoute
   '/p/$projectId': typeof PProjectIdRouteWithChildren
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/export'
+    | '/reset-password'
     | '/settings'
     | '/users'
     | '/p/$projectId'
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/export'
+    | '/reset-password'
     | '/settings'
     | '/users'
     | '/p/$projectId/progress'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/export'
+    | '/reset-password'
     | '/settings'
     | '/users'
     | '/p/$projectId'
@@ -187,6 +199,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   ExportRoute: typeof ExportRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   UsersRoute: typeof UsersRoute
   PProjectIdRoute: typeof PProjectIdRouteWithChildren
@@ -227,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -314,6 +334,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   ExportRoute: ExportRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   UsersRoute: UsersRoute,
   PProjectIdRoute: PProjectIdRouteWithChildren,

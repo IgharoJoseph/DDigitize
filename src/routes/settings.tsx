@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { KeyRound, User } from "lucide-react";
 import { toast } from "sonner";
 
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { changeMyPassword } from "@/lib/users.functions";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -32,6 +34,7 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const { user, displayName, loading } = useAuth();
+  const changePassword = useServerFn(changeMyPassword);
 
   /* ---- password change ---- */
   const [currentPassword, setCurrentPassword] = useState("");
@@ -55,7 +58,7 @@ function SettingsPage() {
     );
   }
 
-  const changePassword = async () => {
+  const submitPasswordChange = async () => {
     if (!currentPassword) {
       toast.error("Enter your current password first");
       return;
@@ -74,15 +77,9 @@ function SettingsPage() {
     }
     setPasswordBusy(true);
     try {
-      // Re-authenticate to prove the user knows the current password.
-      const { error: verifyError } = await supabase.auth.signInWithPassword({
-        email: user.email!,
-        password: currentPassword,
-      });
-      if (verifyError) throw new Error("Your current password is incorrect");
-
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
+      // The current password is verified server-side, so the browser session is
+      // never disturbed and username-only accounts work the same way.
+      await changePassword({ data: { currentPassword, newPassword } });
       toast.success("Password changed");
       setCurrentPassword("");
       setNewPassword("");
@@ -197,7 +194,7 @@ function SettingsPage() {
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
           </div>
-          <Button onClick={() => void changePassword()} disabled={passwordBusy}>
+          <Button onClick={() => void submitPasswordChange()} disabled={passwordBusy}>
             {passwordBusy ? "Saving…" : "Change password"}
           </Button>
         </CardContent>
