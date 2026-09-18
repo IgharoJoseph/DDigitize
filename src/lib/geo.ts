@@ -260,7 +260,6 @@ export function safeBounds(
   return { west: sw[0], south: sw[1], east: ne[0], north: ne[1] };
 }
 
-
 /**
  * Parses free text a person typed into a coordinate box. Longitude first is the
  * GeoJSON convention, but people paste "lat, lng" from Google Maps, so the order

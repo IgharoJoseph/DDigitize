@@ -52,6 +52,21 @@ export type Database = {
           },
         ]
       }
+      app_owners: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       area_assignments: {
         Row: {
           assigned_by: string | null
@@ -536,6 +551,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      app_rank: { Args: { _user_id: string }; Returns: number }
       can_digitize_in: {
         Args: { _project_id: string; _user_id: string; _work_area_id: string }
         Returns: boolean
@@ -560,13 +576,22 @@ export type Database = {
         Args: { _user_id: string; _work_area_id: string }
         Returns: boolean
       }
+      is_owner: { Args: { _user_id: string }; Returns: boolean }
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      project_authority: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: number
+      }
       project_role_of: {
         Args: { _project_id: string; _user_id: string }
         Returns: Database["public"]["Enums"]["project_role"]
+      }
+      role_rank: {
+        Args: { _role: Database["public"]["Enums"]["project_role"] }
+        Returns: number
       }
     }
     Enums: {

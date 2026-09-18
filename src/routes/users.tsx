@@ -5,13 +5,14 @@ import { Copy, KeyRound, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchProfiles, qk } from "@/lib/data";
+import { fetchAccountLevels, fetchProfiles, qk } from "@/lib/data";
 import { isUsernameValid, normalizeUsername } from "@/lib/username";
 import { createUserAccount, resetUserPassword } from "@/lib/users.functions";
 
@@ -37,7 +38,7 @@ export const Route = createFileRoute("/users")({
 });
 
 function UsersPage() {
-  const { isAdmin, loading } = useAuth();
+  const { isAdmin, isOwner, user, loading } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const create = useServerFn(createUserAccount);
@@ -60,6 +61,12 @@ function UsersPage() {
     queryFn: fetchProfiles,
     enabled: isAdmin,
   });
+  const levelsQuery = useQuery({
+    queryKey: ["account-levels"],
+    queryFn: fetchAccountLevels,
+    enabled: isAdmin,
+  });
+  const levels = levelsQuery.data ?? { ownerIds: [], adminIds: [] };
 
   if (loading) {
     return <p className="p-6 text-sm text-muted-foreground">Checking your access…</p>;
@@ -138,7 +145,8 @@ function UsersPage() {
         <h1 className="text-lg font-semibold tracking-tight">Accounts</h1>
         <p className="text-sm text-muted-foreground">
           Create a ready-to-use account. The person can sign in with either their email address or
-          their username, plus the password you hand over.
+          their username, plus the password you hand over. Only the owner can grant admin access,
+          and no one can reset the password of an account at or above their own level.
         </p>
       </div>
 
@@ -192,12 +200,14 @@ function UsersPage() {
                 onChange={(event) => setPassword(event.target.value)}
               />
             </div>
-            <div className="flex items-end gap-2">
-              <Switch id="u-admin" checked={makeAdmin} onCheckedChange={setMakeAdmin} />
-              <Label htmlFor="u-admin" className="text-sm font-normal">
-                Give full admin access
-              </Label>
-            </div>
+            {isOwner && (
+              <div className="flex items-end gap-2">
+                <Switch id="u-admin" checked={makeAdmin} onCheckedChange={setMakeAdmin} />
+                <Label htmlFor="u-admin" className="text-sm font-normal">
+                  Give full admin access
+                </Label>
+              </div>
+            )}
           </div>
           <Button onClick={() => void submit()} disabled={busy}>
             <UserPlus className="mr-1.5 size-4" /> Create account
@@ -268,11 +278,26 @@ function UsersPage() {
                   {profile.username ?? profile.email}
                 </p>
               </div>
+              {levels.ownerIds.includes(profile.id) && (
+                <Badge variant="outline" className="text-[9px] uppercase">
+                  Owner
+                </Badge>
+              )}
+              {!levels.ownerIds.includes(profile.id) && levels.adminIds.includes(profile.id) && (
+                <Badge variant="outline" className="text-[9px] uppercase">
+                  Admin
+                </Badge>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 className="h-7 text-xs"
-                disabled={busy}
+                disabled={
+                  busy ||
+                  (profile.id !== user?.id &&
+                    (levels.ownerIds.includes(profile.id) ||
+                      (!isOwner && levels.adminIds.includes(profile.id))))
+                }
                 onClick={() => void resetFor(profile.id, profile.username ?? profile.email ?? "")}
               >
                 <KeyRound className="mr-1.5 size-3.5" /> New password

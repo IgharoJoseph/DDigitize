@@ -92,6 +92,18 @@ export async function fetchProfiles(): Promise<Profile[]> {
   return unwrap(await supabase.from("profiles").select("*"));
 }
 
+/** Which accounts are the owner and which hold full admin access. */
+export async function fetchAccountLevels(): Promise<{ ownerIds: string[]; adminIds: string[] }> {
+  const [owners, admins] = await Promise.all([
+    supabase.from("app_owners").select("user_id"),
+    supabase.from("user_roles").select("user_id").eq("role", "admin"),
+  ]);
+  return {
+    ownerIds: (owners.data ?? []).map((row) => row.user_id),
+    adminIds: (admins.data ?? []).map((row) => row.user_id),
+  };
+}
+
 export async function fetchActivity(projectId: string, limit = 40): Promise<ActivityRow[]> {
   return unwrap(
     await supabase

@@ -18,6 +18,13 @@ export type AreaStatus = Database["public"]["Enums"]["area_status"];
 /** Effective role of the signed-in person for one project. */
 export type EffectiveRole = "admin" | ProjectRole | "none";
 
+/** Authority of each project role; you may only act on roles below your own. */
+export const ROLE_RANK: Record<ProjectRole, number> = {
+  manager: 50,
+  supervisor: 30,
+  contributor: 10,
+};
+
 export const PROJECT_ROLES: { value: ProjectRole; label: string; blurb: string }[] = [
   {
     value: "manager",

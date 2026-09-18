@@ -19,7 +19,6 @@ export function ensurePmtilesProtocol() {
   registered = true;
 }
 
-
 export type InspectResult = {
   ok: boolean;
   message: string;

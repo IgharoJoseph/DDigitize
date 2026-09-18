@@ -15,10 +15,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
-import { useProjectAreas } from "@/hooks/useProjectRole";
+import { useProjectAccess, useProjectAreas } from "@/hooks/useProjectRole";
 import { fetchProfiles, qk } from "@/lib/data";
 import {
   PROJECT_ROLES,
+  ROLE_RANK,
   addMember,
   assignArea,
   fetchAssignments,
@@ -32,6 +33,7 @@ import {
 /** Team list, role assignment, and which work area each contributor owns. */
 export function TeamTab({ projectId }: { projectId: string }) {
   const { user } = useAuth();
+  const { authority, assignableRoles } = useProjectAccess(projectId);
   const queryClient = useQueryClient();
 
   const profilesQuery = useQuery({ queryKey: qk.profiles, queryFn: fetchProfiles });
@@ -54,6 +56,7 @@ export function TeamTab({ projectId }: { projectId: string }) {
     userId: "",
     role: "contributor",
   });
+  const rolesYouCanGrant = PROJECT_ROLES.filter((role) => assignableRoles.includes(role.value));
 
   const name = (id: string | null) => {
     const profile = profiles.find((item) => item.id === id);
@@ -103,7 +106,8 @@ export function TeamTab({ projectId }: { projectId: string }) {
       <div>
         <h2 className="text-base font-semibold tracking-tight">Team &amp; assignments</h2>
         <p className="text-sm text-muted-foreground">
-          Supervisors review work; contributors digitize only inside the areas you give them.
+          Supervisors review work; contributors digitize only inside the areas you give them. You
+          can only add or remove people at a level below your own.
         </p>
       </div>
 
@@ -150,7 +154,7 @@ export function TeamTab({ projectId }: { projectId: string }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {PROJECT_ROLES.map((role) => (
+                {rolesYouCanGrant.map((role) => (
                   <SelectItem key={role.value} value={role.value}>
                     {role.label}
                   </SelectItem>
@@ -183,6 +187,7 @@ export function TeamTab({ projectId }: { projectId: string }) {
                     variant="ghost"
                     size="sm"
                     className="ml-auto h-7 text-xs text-destructive"
+                    disabled={authority <= ROLE_RANK[member.role]}
                     onClick={async () => {
                       try {
                         await removeMember(member.id);

@@ -2,6 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+type AuthedContext = {
+  supabase: {
+    rpc: (
+      fn: "app_rank",
+      args: { _user_id: string },
+    ) => PromiseLike<{ data: number | null; error: { message: string } | null }>;
+  };
+};
 import { normalizeUsername } from "@/lib/username";
 
 const input = z.object({
@@ -25,6 +34,17 @@ function randomPassword() {
 }
 
 /**
+ * Authority on one shared scale: owner 100, admin 90, everyone else 0. You can
+ * only act on an account whose authority is strictly below your own, so an
+ * admin can never take over the owner's account or another admin's.
+ */
+async function authorityOf(supabase: AuthedContext["supabase"], userId: string): Promise<number> {
+  const { data, error } = await supabase.rpc("app_rank", { _user_id: userId });
+  if (error) throw new Error(error.message);
+  return Number(data ?? 0);
+}
+
+/**
  * Admin-only account creation. The account is created already confirmed so the
  * credentials can be handed to a tester directly, with no email round trip.
  */
@@ -32,12 +52,11 @@ export const createUserAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => input.parse(data))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin, error: roleError } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (roleError) throw new Error(roleError.message);
-    if (!isAdmin) throw new Error("Only an admin can create accounts");
+    const actor = await authorityOf(context.supabase, context.userId);
+    if (actor < 90) throw new Error("Only an admin can create accounts");
+    if (data.makeAdmin && actor < 100) {
+      throw new Error("Only the project owner can grant full admin access");
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -88,12 +107,12 @@ export const resetUserPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => resetInput.parse(data))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin, error: roleError } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (roleError) throw new Error(roleError.message);
-    if (!isAdmin) throw new Error("Only an admin can reset passwords");
+    const actor = await authorityOf(context.supabase, context.userId);
+    if (actor < 90) throw new Error("Only an admin can reset passwords");
+    const target = await authorityOf(context.supabase, data.userId);
+    if (data.userId !== context.userId && target >= actor) {
+      throw new Error("You cannot change the password of an account at or above your own level");
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const password = data.password?.trim() || randomPassword();

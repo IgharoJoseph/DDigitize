@@ -42,7 +42,6 @@ export function BasemapPanel({
   loading,
   onZoomToImagery,
 }: Props) {
-
   const dataset = datasets.find((item) => item.id === datasetId) ?? null;
 
   return (
@@ -124,8 +123,6 @@ export function BasemapPanel({
             {loading && <span className="text-[10px] text-muted-foreground">Streaming…</span>}
           </div>
         )}
-
-
 
         <div className="flex items-center justify-between rounded border border-border bg-card/60 px-2 py-1.5">
           <span className="text-xs text-muted-foreground">Show imagery</span>

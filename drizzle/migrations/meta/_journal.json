@@ -36,6 +36,13 @@
       "when": 1789735924796,
       "tag": "0004_add_profile_usernames",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789737220617,
+      "tag": "0005_privilege_hierarchy",
+      "breakpoints": true
     }
   ]
 }

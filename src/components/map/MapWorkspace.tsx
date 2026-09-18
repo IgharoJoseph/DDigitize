@@ -101,7 +101,6 @@ function styleParsed(map: MapLibreMap): boolean {
   return Boolean(style?._loaded);
 }
 
-
 /** Tracks the theme class on <html> so the map restyles with the app toggle. */
 function useIsDarkTheme() {
   const [isDark, setIsDark] = useState(true);
@@ -154,7 +153,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   const [overlayEpoch, setOverlayEpoch] = useState(0);
   // Bumped when the drawing engine attaches, so its listeners can be wired up.
   const [drawReady, setDrawReady] = useState(0);
-
 
   const [undoStack, setUndoStack] = useState<UndoStep[]>([]);
   const [redoStack, setRedoStack] = useState<UndoStep[]>([]);
@@ -213,7 +211,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     if (best) setDatasetId(best.id);
   }, [datasets, datasetId]);
 
-
   /* ---------------- autosave ---------------- */
 
   const flush = useCallback(async () => {
@@ -266,7 +263,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     });
     mapRef.current = map;
     map.on("error", (event) => console.error("[map]", event.error?.message ?? event));
-
 
     map.addControl(new NavigationControl({ visualizePitch: false }), "bottom-right");
 
@@ -346,8 +342,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
           map.getLayer("dt-area-fill") ? "dt-area-fill" : undefined,
         );
       }
-
-
 
       if (!map.getSource(AREA_SOURCE)) {
         map.addSource(AREA_SOURCE, {
@@ -431,7 +425,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     }
   }, [dataset, opacity, imageryVisible]);
 
-
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -462,7 +455,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     map.setStyle(basemapStyle(basemap, isDark), { diff: false });
     map.once("idle", () => setStyleEpoch((epoch) => epoch + 1));
   }, [basemap, isDark, mapReady, styleSignature]);
-
 
   // Fly to the imagery: its stored bounds when usable, otherwise its centre.
   const zoomToImagery = useCallback(() => {
@@ -524,7 +516,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       map.off("idle", update);
     };
   }, [mapReady, datasetId]);
-
 
   useEffect(() => {
     const map = mapRef.current;
@@ -729,8 +720,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       console.error("Could not switch drawing tool", error);
     }
   }, [tool, mapReady, styleEpoch, drawReady]);
-
-
 
   const createMutation = useMutation({
     mutationFn: async (geometry: Geometry) => {
@@ -1028,7 +1017,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
                 onImageryVisible={setImageryVisible}
                 loading={imageryLoading}
                 onZoomToImagery={zoomToImagery}
-
               />
               <div className="border-t border-border px-3 py-3">
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -1078,7 +1066,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
           {/* MapLibre's stylesheet forces position:relative on its container, which
               cancels absolute positioning and collapses the height — size it directly. */}
           <div ref={containerRef} className="h-full w-full" />
-
 
           <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-2">
             <Button
