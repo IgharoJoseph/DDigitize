@@ -14,6 +14,7 @@ import { Route as AuditRouteImport } from './routes/audit'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ExportRouteImport } from './routes/export'
+import { Route as UsersRouteImport } from './routes/users'
 import { Route as PProjectIdRouteImport } from './routes/p.$projectId'
 import { Route as PProjectIdIndexRouteImport } from './routes/p.$projectId.index'
 import { Route as PProjectIdProgressRouteImport } from './routes/p.$projectId.progress'
@@ -44,6 +45,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const ExportRoute = ExportRouteImport.update({
   id: '/export',
   path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PProjectIdRoute = PProjectIdRouteImport.update({
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/export': typeof ExportRoute
+  '/users': typeof UsersRoute
   '/p/$projectId': typeof PProjectIdRouteWithChildren
   '/p/$projectId/progress': typeof PProjectIdProgressRoute
   '/p/$projectId/review': typeof PProjectIdReviewRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/export': typeof ExportRoute
+  '/users': typeof UsersRoute
   '/p/$projectId/progress': typeof PProjectIdProgressRoute
   '/p/$projectId/review': typeof PProjectIdReviewRoute
   '/p/$projectId/setup': typeof PProjectIdSetupRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/export': typeof ExportRoute
+  '/users': typeof UsersRoute
   '/p/$projectId': typeof PProjectIdRouteWithChildren
   '/p/$projectId/progress': typeof PProjectIdProgressRoute
   '/p/$projectId/review': typeof PProjectIdReviewRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/export'
+    | '/users'
     | '/p/$projectId'
     | '/p/$projectId/progress'
     | '/p/$projectId/review'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/export'
+    | '/users'
     | '/p/$projectId/progress'
     | '/p/$projectId/review'
     | '/p/$projectId/setup'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/export'
+    | '/users'
     | '/p/$projectId'
     | '/p/$projectId/progress'
     | '/p/$projectId/review'
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   ExportRoute: typeof ExportRoute
+  UsersRoute: typeof UsersRoute
   PProjectIdRoute: typeof PProjectIdRouteWithChildren
 }
 
@@ -201,6 +214,13 @@ declare module '@tanstack/react-router' {
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/p/$projectId': {
@@ -274,6 +294,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   ExportRoute: ExportRoute,
+  UsersRoute: UsersRoute,
   PProjectIdRoute: PProjectIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport

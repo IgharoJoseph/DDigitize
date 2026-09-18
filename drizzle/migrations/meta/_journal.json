@@ -29,6 +29,13 @@
       "when": 1789675989261,
       "tag": "0003_contributor_area_submit_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789735924796,
+      "tag": "0004_add_profile_usernames",
+      "breakpoints": true
     }
   ]
 }

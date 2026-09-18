@@ -312,7 +312,12 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
         map.addSource(IMAGERY_SOURCE, {
           type: "raster",
           url: `pmtiles://${dataset.url}`,
-          tileSize: 512,
+          // GDAL/pmtiles archives are 256 px unless they advertise 512 in the
+          // file name; declaring the wrong size halves the visible resolution.
+          tileSize: /512/.test(dataset.url) ? 512 : 256,
+          // The source keeps its own minzoom so MapLibre does not request tiles
+          // the archive does not hold, but the layer must stay unrestricted so
+          // the deepest tiles are over-zoomed instead of disappearing.
           minzoom: dataset.min_zoom ?? 0,
           maxzoom: dataset.max_zoom ?? 22,
           ...(bounds
@@ -485,9 +490,21 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     if (map.getLayer(IMAGERY_LAYER)) map.removeLayer(IMAGERY_LAYER);
     if (map.getSource(IMAGERY_SOURCE)) map.removeSource(IMAGERY_SOURCE);
     applyOverlays();
-    zoomToImagery();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetId, mapReady]);
+
+  // Archives that start at a deep minimum zoom draw nothing at the world view,
+  // so the camera is moved onto the imagery as soon as its layer really exists —
+  // the dataset-switch effect above can run before the style is parsed.
+  const zoomedFor = useRef<string | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !datasetId) return;
+    if (zoomedFor.current === datasetId) return;
+    if (!map.getLayer(IMAGERY_LAYER)) return;
+    zoomedFor.current = datasetId;
+    zoomToImagery();
+  }, [datasetId, mapReady, overlayEpoch, styleEpoch, zoomToImagery]);
 
   // Streaming indicator: PMTiles tiles arrive over HTTP range requests, so the
   // panel says when imagery is still loading.

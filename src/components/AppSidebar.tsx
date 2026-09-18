@@ -36,6 +36,7 @@ export function AppSidebar() {
         <Item to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
         <Item to="/" icon={FolderKanban} label="Projects" exact />
         {isAdmin && <Item to="/export" icon={Download} label="Exports" />}
+        {isAdmin && <Item to="/users" icon={Users} label="Accounts" />}
         {isAdmin && <Item to="/audit" icon={ScrollText} label="Audit log" />}
       </Section>
 
@@ -111,7 +112,7 @@ function Item({
   label,
   exact,
 }: {
-  to: "/" | "/dashboard" | "/export" | "/audit";
+  to: "/" | "/dashboard" | "/export" | "/audit" | "/users";
   icon: Icon;
   label: string;
   exact?: boolean;
