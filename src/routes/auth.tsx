@@ -158,7 +158,7 @@ function AuthPage() {
   };
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-background px-4 py-10">
+    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-background px-4 py-10">
       <Card className="w-full max-w-sm border-border bg-panel">
         <CardHeader className="space-y-2">
           <div className="flex items-center gap-2">

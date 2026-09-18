@@ -120,108 +120,110 @@ function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6 p-6">
-      <div>
-        <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Change your password and update your display name.
-        </p>
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto w-full max-w-2xl space-y-6 p-4 pb-16 sm:p-6">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
+          <p className="text-sm text-muted-foreground">
+            Change your password and update your display name.
+          </p>
+        </div>
+
+        {/* ---- account info ---- */}
+        <Card className="bg-panel">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="size-4" /> Account
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex gap-2">
+              <span className="w-24 shrink-0 text-muted-foreground">Email</span>
+              <span className="font-mono">{user.email}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="w-24 shrink-0 text-muted-foreground">Current name</span>
+              <span>{displayName}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ---- change password ---- */}
+        <Card className="bg-panel">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="size-4" /> Change password
+            </CardTitle>
+            <CardDescription>Pick a strong password you don't use anywhere else.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="current-pass">Current password</Label>
+              <Input
+                id="current-pass"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                maxLength={72}
+                placeholder="Enter your current password"
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-pass">New password</Label>
+              <Input
+                id="new-pass"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                maxLength={72}
+                placeholder="At least 8 characters"
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-pass">Confirm password</Label>
+              <Input
+                id="confirm-pass"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                maxLength={72}
+                placeholder="Re-enter the new password"
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            <Button onClick={() => void submitPasswordChange()} disabled={passwordBusy}>
+              {passwordBusy ? "Saving…" : "Change password"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* ---- update display name ---- */}
+        <Card className="bg-panel">
+          <CardHeader>
+            <CardTitle className="text-base">Display name</CardTitle>
+            <CardDescription>
+              This is the name other team members see on comments and activity.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="display-name">New display name</Label>
+              <Input
+                id="display-name"
+                value={name}
+                maxLength={80}
+                placeholder={displayName}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <Button onClick={() => void updateName()} disabled={nameBusy}>
+              {nameBusy ? "Saving…" : "Update name"}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* ---- account info ---- */}
-      <Card className="bg-panel">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <User className="size-4" /> Account
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div className="flex gap-2">
-            <span className="w-24 shrink-0 text-muted-foreground">Email</span>
-            <span className="font-mono">{user.email}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="w-24 shrink-0 text-muted-foreground">Current name</span>
-            <span>{displayName}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ---- change password ---- */}
-      <Card className="bg-panel">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <KeyRound className="size-4" /> Change password
-          </CardTitle>
-          <CardDescription>Pick a strong password you don't use anywhere else.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="current-pass">Current password</Label>
-            <Input
-              id="current-pass"
-              type="password"
-              autoComplete="current-password"
-              value={currentPassword}
-              maxLength={72}
-              placeholder="Enter your current password"
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-pass">New password</Label>
-            <Input
-              id="new-pass"
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              maxLength={72}
-              placeholder="At least 8 characters"
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="confirm-pass">Confirm password</Label>
-            <Input
-              id="confirm-pass"
-              type="password"
-              autoComplete="new-password"
-              value={confirmPassword}
-              maxLength={72}
-              placeholder="Re-enter the new password"
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </div>
-          <Button onClick={() => void submitPasswordChange()} disabled={passwordBusy}>
-            {passwordBusy ? "Saving…" : "Change password"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* ---- update display name ---- */}
-      <Card className="bg-panel">
-        <CardHeader>
-          <CardTitle className="text-base">Display name</CardTitle>
-          <CardDescription>
-            This is the name other team members see on comments and activity.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="display-name">New display name</Label>
-            <Input
-              id="display-name"
-              value={name}
-              maxLength={80}
-              placeholder={displayName}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <Button onClick={() => void updateName()} disabled={nameBusy}>
-            {nameBusy ? "Saving…" : "Update name"}
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }
