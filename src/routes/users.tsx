@@ -81,11 +81,20 @@ function UsersPage() {
     );
   }
 
-  const toggleManager = async (userId: string, grant: boolean) => {
+  const toggleSystemRole = async (userId: string, role: "manager" | "admin", grant: boolean) => {
     setBusy(true);
     try {
-      await changeSystemRole({ data: { userId, role: "manager", grant } });
-      toast.success(grant ? "Manager role granted" : "Manager role removed");
+      await changeSystemRole({ data: { userId, role, grant } });
+      toast.success(
+        grant
+          ? role === "admin"
+            ? "Platform administration granted"
+            : "Manager role granted"
+          : role === "admin"
+            ? "Platform administration removed"
+            : "Manager role removed",
+      );
+
       void queryClient.invalidateQueries({ queryKey: ["account-levels"] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "That role change was refused");
@@ -308,21 +317,47 @@ function UsersPage() {
                   Manager
                 </Badge>
               )}
-              {!levels.ownerIds.includes(profile.id) &&
-                !levels.adminIds.includes(profile.id) &&
-                profile.id !== user?.id && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    disabled={busy}
-                    onClick={() =>
-                      void toggleManager(profile.id, !levels.managerIds.includes(profile.id))
-                    }
-                  >
-                    {levels.managerIds.includes(profile.id) ? "Remove manager" : "Make manager"}
-                  </Button>
-                )}
+              {!levels.ownerIds.includes(profile.id) && profile.id !== user?.id && (
+                <>
+                  {!levels.adminIds.includes(profile.id) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={busy}
+                      onClick={() =>
+                        void toggleSystemRole(
+                          profile.id,
+                          "manager",
+                          !levels.managerIds.includes(profile.id),
+                        )
+                      }
+                    >
+                      {levels.managerIds.includes(profile.id) ? "Remove manager" : "Make manager"}
+                    </Button>
+                  )}
+                  {isOwner && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={busy}
+                      onClick={() =>
+                        void toggleSystemRole(
+                          profile.id,
+                          "admin",
+                          !levels.adminIds.includes(profile.id),
+                        )
+                      }
+                    >
+                      {levels.adminIds.includes(profile.id)
+                        ? "Remove platform admin"
+                        : "Make platform admin"}
+                    </Button>
+                  )}
+                </>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"

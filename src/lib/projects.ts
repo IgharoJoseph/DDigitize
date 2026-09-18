@@ -165,9 +165,24 @@ export async function addMember(input: {
   );
 }
 
+/**
+ * Removing a member is refused by the database when the person is at or above
+ * your own authority. A refused delete returns no error and no rows, so the
+ * returned rows are checked here — otherwise a blocked removal looked like it
+ * had worked while the person kept their access.
+ */
 export async function removeMember(id: string) {
-  const { error } = await supabase.from("project_members").delete().eq("id", id);
+  const { data, error } = await supabase
+    .from("project_members")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error(
+      "That person was not removed: you can only remove people below your own level, and never the platform owner.",
+    );
+  }
 }
 
 /* ------------------------------- work areas ------------------------------ */
@@ -252,8 +267,15 @@ export async function assignArea(input: {
 }
 
 export async function unassignArea(id: string) {
-  const { error } = await supabase.from("area_assignments").delete().eq("id", id);
+  const { data, error } = await supabase
+    .from("area_assignments")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error("That assignment was not removed: you do not have permission to change it.");
+  }
 }
 
 /* --------------------------- containment helpers -------------------------- */
