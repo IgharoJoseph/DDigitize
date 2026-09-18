@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useProjectAccess, useProjectAreas } from "@/hooks/useProjectRole";
-import { fetchProfiles, qk } from "@/lib/data";
+import { listAssignableAccounts } from "@/lib/directory.functions";
 import {
   PROJECT_ROLES,
   ROLE_RANK,
@@ -36,7 +37,14 @@ export function TeamTab({ projectId }: { projectId: string }) {
   const { authority, assignableRoles } = useProjectAccess(projectId);
   const queryClient = useQueryClient();
 
-  const profilesQuery = useQuery({ queryKey: qk.profiles, queryFn: fetchProfiles });
+  // Profiles are no longer readable across the whole organisation, so the
+  // candidate list comes from a server function that checks project authority.
+  const directory = useServerFn(listAssignableAccounts);
+  const profilesQuery = useQuery({
+    queryKey: ["assignable-accounts", projectId],
+    queryFn: () => directory({ data: { projectId } }),
+    enabled: authority >= 50,
+  });
   const membersQuery = useQuery({
     queryKey: pk.members(projectId),
     queryFn: () => fetchMembers(projectId),
@@ -60,7 +68,7 @@ export function TeamTab({ projectId }: { projectId: string }) {
 
   const name = (id: string | null) => {
     const profile = profiles.find((item) => item.id === id);
-    return profile?.display_name ?? profile?.email ?? "Unknown";
+    return profile?.display_name ?? profile?.username ?? "Unknown";
   };
 
   const refreshTeam = () => {
@@ -131,7 +139,7 @@ export function TeamTab({ projectId }: { projectId: string }) {
               <SelectContent>
                 {notMembers.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id}>
-                    {profile.display_name ?? profile.email ?? profile.id}
+                    {profile.display_name ?? profile.username ?? profile.id}
                   </SelectItem>
                 ))}
                 {notMembers.length === 0 && (

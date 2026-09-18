@@ -23,7 +23,7 @@ type Icon = ComponentType<{ className?: string }>;
  * block appears once you are inside a project workspace.
  */
 export function AppSidebar() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
   const params = useParams({ strict: false }) as { projectId?: string };
   const projectId = params.projectId ?? null;
   const access = useProjectAccess(projectId ?? "");
@@ -35,7 +35,7 @@ export function AppSidebar() {
       <Section title="Workspace">
         <Item to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
         <Item to="/" icon={FolderKanban} label="Projects" exact />
-        {isAdmin && <Item to="/export" icon={Download} label="Exports" />}
+        {(isAdmin || isManager) && <Item to="/export" icon={Download} label="Exports" />}
         {isAdmin && <Item to="/users" icon={Users} label="Accounts" />}
         {isAdmin && <Item to="/audit" icon={ScrollText} label="Audit log" />}
         <Item to="/settings" icon={Settings} label="Settings" />

@@ -494,23 +494,78 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     if (!map || !mapReady || !datasetId) return;
     if (zoomedFor.current === datasetId) return;
     if (!map.getLayer(IMAGERY_LAYER)) return;
+    // A contributor's camera belongs on their own work area; letting the imagery
+    // fit run as well makes the two fly animations fight each other.
+    if (access.restrictedToAssignments && myAreas.length > 0) {
+      zoomedFor.current = datasetId;
+      return;
+    }
     zoomedFor.current = datasetId;
     zoomToImagery();
-  }, [datasetId, mapReady, overlayEpoch, styleEpoch, zoomToImagery]);
+  }, [
+    datasetId,
+    mapReady,
+    overlayEpoch,
+    styleEpoch,
+    zoomToImagery,
+    access.restrictedToAssignments,
+    myAreas,
+  ]);
 
-  // Streaming indicator: PMTiles tiles arrive over HTTP range requests, so the
-  // panel says when imagery is still loading.
+  // Streaming indicator: PMTiles tiles arrive over HTTP range requests in rapid
+  // bursts, so the label only appears after a full second of sustained loading
+  // and then stays put for a second — otherwise it strobes while panning.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
+    let showTimer: ReturnType<typeof setTimeout> | null = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    let shownAt = 0;
+    let visible = false;
+
+    const show = () => {
+      visible = true;
+      shownAt = Date.now();
+      setImageryLoading(true);
+    };
+    const hide = () => {
+      visible = false;
+      setImageryLoading(false);
+    };
+
     const update = () => {
       const source = map.getSource(IMAGERY_SOURCE);
-      setImageryLoading(Boolean(source) && !map.areTilesLoaded());
+      const busy = Boolean(source) && !map.areTilesLoaded();
+      if (busy) {
+        if (hideTimer) {
+          clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+        if (visible || showTimer) return;
+        showTimer = setTimeout(() => {
+          showTimer = null;
+          show();
+        }, 1000);
+        return;
+      }
+      if (showTimer) {
+        clearTimeout(showTimer);
+        showTimer = null;
+      }
+      if (!visible || hideTimer) return;
+      const remaining = Math.max(0, 1000 - (Date.now() - shownAt));
+      hideTimer = setTimeout(() => {
+        hideTimer = null;
+        hide();
+      }, remaining);
     };
+
     map.on("dataloading", update);
     map.on("data", update);
     map.on("idle", update);
     return () => {
+      if (showTimer) clearTimeout(showTimer);
+      if (hideTimer) clearTimeout(hideTimer);
       map.off("dataloading", update);
       map.off("data", update);
       map.off("idle", update);

@@ -78,14 +78,27 @@ export async function fetchDatasets(projectId: string): Promise<ImageryDataset[]
   );
 }
 
+const FEATURE_PAGE = 1000;
+
+/**
+ * Features for one project. The Data API caps a single response at 1000 rows,
+ * which silently truncated large projects, so the rows are read page by page
+ * (indexed on project_id, created_at) until the project is fully loaded.
+ */
 export async function fetchFeatures(projectId: string): Promise<FeatureRow[]> {
-  return unwrap(
-    await supabase
-      .from("features")
-      .select("*")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: false }),
-  );
+  const rows: FeatureRow[] = [];
+  for (let page = 0; ; page += 1) {
+    const batch = unwrap(
+      await supabase
+        .from("features")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .range(page * FEATURE_PAGE, page * FEATURE_PAGE + FEATURE_PAGE - 1),
+    );
+    rows.push(...batch);
+    if (batch.length < FEATURE_PAGE) return rows;
+  }
 }
 
 export async function fetchProfiles(): Promise<Profile[]> {
@@ -93,14 +106,20 @@ export async function fetchProfiles(): Promise<Profile[]> {
 }
 
 /** Which accounts are the owner and which hold full admin access. */
-export async function fetchAccountLevels(): Promise<{ ownerIds: string[]; adminIds: string[] }> {
-  const [owners, admins] = await Promise.all([
+export async function fetchAccountLevels(): Promise<{
+  ownerIds: string[];
+  adminIds: string[];
+  managerIds: string[];
+}> {
+  const [owners, admins, managers] = await Promise.all([
     supabase.from("app_owners").select("user_id"),
     supabase.from("user_roles").select("user_id").eq("role", "admin"),
+    supabase.from("user_roles").select("user_id").eq("role", "manager"),
   ]);
   return {
     ownerIds: (owners.data ?? []).map((row) => row.user_id),
     adminIds: (admins.data ?? []).map((row) => row.user_id),
+    managerIds: (managers.data ?? []).map((row) => row.user_id),
   };
 }
 

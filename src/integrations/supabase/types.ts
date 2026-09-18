@@ -22,6 +22,7 @@ export type Database = {
           feature_id: string | null
           id: string
           project_id: string | null
+          source: string
           user_id: string | null
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           feature_id?: string | null
           id?: string
           project_id?: string | null
+          source?: string
           user_id?: string | null
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           feature_id?: string | null
           id?: string
           project_id?: string | null
+          source?: string
           user_id?: string | null
         }
         Relationships: [
@@ -251,6 +254,8 @@ export type Database = {
           length_m: number
           project_id: string | null
           review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: Database["public"]["Enums"]["review_status"]
           updated_at: string
           work_area_id: string | null
@@ -267,6 +272,8 @@ export type Database = {
           length_m?: number
           project_id?: string | null
           review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: Database["public"]["Enums"]["review_status"]
           updated_at?: string
           work_area_id?: string | null
@@ -283,6 +290,8 @@ export type Database = {
           length_m?: number
           project_id?: string | null
           review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: Database["public"]["Enums"]["review_status"]
           updated_at?: string
           work_area_id?: string | null
@@ -453,6 +462,7 @@ export type Database = {
           due_date: string | null
           id: string
           name: string
+          owner_id: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["project_status"]
           updated_at: string
@@ -467,6 +477,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           name: string
+          owner_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           updated_at?: string
@@ -481,6 +492,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           name?: string
+          owner_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           updated_at?: string
@@ -564,6 +576,34 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      dashboard_area_counts: {
+        Args: never
+        Returns: {
+          complete: number
+          in_progress: number
+          not_started: number
+          project_id: string
+          submitted: number
+          total: number
+        }[]
+      }
+      dashboard_contributor_count: { Args: never; Returns: number }
+      dashboard_feature_counts: {
+        Args: { _as_contributor?: boolean }
+        Returns: {
+          approved: number
+          corrections: number
+          drafts: number
+          project_id: string
+          submitted: number
+          total: number
+          under_review: number
+        }[]
+      }
+      has_project_permission: {
+        Args: { _permission: string; _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -576,8 +616,14 @@ export type Database = {
         Args: { _user_id: string; _work_area_id: string }
         Returns: boolean
       }
+      is_org_manager: { Args: { _user_id: string }; Returns: boolean }
       is_owner: { Args: { _user_id: string }; Returns: boolean }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_project_member: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_project_owner: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
@@ -585,6 +631,7 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: number
       }
+      project_permissions: { Args: { _project_id: string }; Returns: string[] }
       project_role_of: {
         Args: { _project_id: string; _user_id: string }
         Returns: Database["public"]["Enums"]["project_role"]
@@ -593,9 +640,10 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["project_role"] }
         Returns: number
       }
+      shares_project: { Args: { _a: string; _b: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "contributor"
+      app_role: "admin" | "contributor" | "manager"
       area_status:
         | "unassigned"
         | "assigned"
@@ -747,7 +795,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "contributor"],
+      app_role: ["admin", "contributor", "manager"],
       area_status: [
         "unassigned",
         "assigned",

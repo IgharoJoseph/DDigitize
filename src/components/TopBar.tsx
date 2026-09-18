@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { LogOut, Moon, Radar, Sun } from "lucide-react";
+import { Eye, LogOut, Moon, Radar, Sun } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 
 export function TopBar() {
-  const { user, isAdmin, displayName, signOut } = useAuth();
+  const { user, isAdmin, displayName, signOut, previewRole, canPreviewRoles, setPreviewRole } =
+    useAuth();
   const { theme, toggle } = useTheme();
 
   return (
@@ -38,6 +39,18 @@ export function TopBar() {
       </nav>
 
       <div className="ml-auto flex items-center gap-2">
+        {canPreviewRoles && (
+          <Button
+            variant={previewRole ? "default" : "outline"}
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => setPreviewRole(previewRole ? null : "contributor")}
+          >
+            <Eye className="size-3.5" />
+            {previewRole ? "Exit contributor view" : "View as contributor"}
+          </Button>
+        )}
+        {previewRole && <Badge className="text-[9px] uppercase">contributor view</Badge>}
         {isAdmin && (
           <Badge variant="outline" className="text-[9px] uppercase">
             admin

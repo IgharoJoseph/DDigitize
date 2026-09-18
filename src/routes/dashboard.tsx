@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
-import { areaProgress, countByStatus, fetchOverview, ok } from "@/lib/overview";
-import { fetchMyMemberships, fetchProjects, pk } from "@/lib/projects";
+import { fetchOverview, noAreaCounts, noFeatureCounts, ok } from "@/lib/overview";
+import { fetchProjects, pk } from "@/lib/projects";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -29,21 +29,17 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardPage() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, loading, previewRole } = useAuth();
+  const asContributor = previewRole === "contributor";
 
   const overviewQuery = useQuery({
-    queryKey: ok.overview,
-    queryFn: fetchOverview,
+    queryKey: [...ok.overview, asContributor] as const,
+    queryFn: () => fetchOverview(asContributor),
     enabled: Boolean(user),
   });
   const projectsQuery = useQuery({
     queryKey: pk.projects,
     queryFn: fetchProjects,
-    enabled: Boolean(user),
-  });
-  const membershipsQuery = useQuery({
-    queryKey: pk.myMemberships,
-    queryFn: fetchMyMemberships,
     enabled: Boolean(user),
   });
 
@@ -61,25 +57,13 @@ function DashboardPage() {
   }
 
   const projects = projectsQuery.data ?? [];
-  const memberships = membershipsQuery.data ?? [];
-  const features = overviewQuery.data?.features ?? [];
-  const areas = overviewQuery.data?.areas ?? [];
-  const members = overviewQuery.data?.members ?? [];
+  const featuresByProject = overviewQuery.data?.featuresByProject ?? {};
+  const areasByProject = overviewQuery.data?.areasByProject ?? {};
 
-  const isReviewer = (projectId: string) => {
-    if (isAdmin) return true;
-    const role = memberships.find((m) => m.project_id === projectId)?.role;
-    return role === "manager" || role === "supervisor";
-  };
-
-  // Contributors only ever see their own numbers.
-  const scoped = features.filter((f) =>
-    f.project_id && isReviewer(f.project_id) ? true : f.created_by === user?.id,
-  );
-  const counts = countByStatus(scoped);
-  const contributors = new Set(
-    members.filter((m) => m.role === "contributor").map((m) => m.user_id),
-  ).size;
+  // Totals come from database aggregates, already scoped: reviewers see the
+  // whole project, contributors only their own features.
+  const counts = overviewQuery.data?.featureTotals ?? noFeatureCounts();
+  const contributors = overviewQuery.data?.contributors ?? 0;
   const activeProjects = projects.filter((p) => p.status === "active" || p.status === "review");
 
   return (
@@ -111,10 +95,8 @@ function DashboardPage() {
               <p className="text-sm text-muted-foreground">No projects yet.</p>
             )}
             {projects.map((project) => {
-              const projectAreas = areas.filter((a) => a.project_id === project.id);
-              const projectFeatures = features.filter((f) => f.project_id === project.id);
-              const ap = areaProgress(projectAreas);
-              const fc = countByStatus(projectFeatures);
+              const ap = areasByProject[project.id] ?? noAreaCounts();
+              const fc = featuresByProject[project.id] ?? noFeatureCounts();
               return (
                 <div key={project.id} className="rounded border border-border p-3">
                   <div className="flex flex-wrap items-center gap-2">

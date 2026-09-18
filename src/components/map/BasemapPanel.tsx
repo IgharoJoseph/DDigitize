@@ -110,17 +110,17 @@ export function BasemapPanel({
         )}
 
         {dataset && (
-          <div className="flex items-center gap-2">
+          <div className="space-y-1">
             <Button
               type="button"
               size="sm"
               variant="secondary"
-              className="h-7 flex-1 text-xs"
+              className="h-7 w-full text-xs"
               onClick={onZoomToImagery}
             >
               <Crosshair className="mr-1 size-3.5" /> Zoom to imagery
             </Button>
-            {loading && <span className="text-[10px] text-muted-foreground">Streaming…</span>}
+            <p className="h-3 text-[10px] text-muted-foreground">{loading ? "Streaming…" : ""}</p>
           </div>
         )}
 

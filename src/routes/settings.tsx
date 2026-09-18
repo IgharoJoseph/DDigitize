@@ -153,9 +153,7 @@ function SettingsPage() {
           <CardTitle className="flex items-center gap-2 text-base">
             <KeyRound className="size-4" /> Change password
           </CardTitle>
-          <CardDescription>
-            Pick a strong password you don't use anywhere else.
-          </CardDescription>
+          <CardDescription>Pick a strong password you don't use anywhere else.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">

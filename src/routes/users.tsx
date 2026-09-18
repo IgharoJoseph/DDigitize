@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchAccountLevels, fetchProfiles, qk } from "@/lib/data";
 import { isUsernameValid, normalizeUsername } from "@/lib/username";
+import { setSystemRole } from "@/lib/roles.functions";
 import { createUserAccount, resetUserPassword } from "@/lib/users.functions";
 
 export const Route = createFileRoute("/users")({
@@ -43,6 +44,7 @@ function UsersPage() {
   const queryClient = useQueryClient();
   const create = useServerFn(createUserAccount);
   const reset = useServerFn(resetUserPassword);
+  const changeSystemRole = useServerFn(setSystemRole);
 
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -66,7 +68,7 @@ function UsersPage() {
     queryFn: fetchAccountLevels,
     enabled: isAdmin,
   });
-  const levels = levelsQuery.data ?? { ownerIds: [], adminIds: [] };
+  const levels = levelsQuery.data ?? { ownerIds: [], adminIds: [], managerIds: [] };
 
   if (loading) {
     return <p className="p-6 text-sm text-muted-foreground">Checking your access…</p>;
@@ -78,6 +80,19 @@ function UsersPage() {
       </div>
     );
   }
+
+  const toggleManager = async (userId: string, grant: boolean) => {
+    setBusy(true);
+    try {
+      await changeSystemRole({ data: { userId, role: "manager", grant } });
+      toast.success(grant ? "Manager role granted" : "Manager role removed");
+      void queryClient.invalidateQueries({ queryKey: ["account-levels"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "That role change was refused");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const copy = (text: string) => {
     void navigator.clipboard.writeText(text);
@@ -285,9 +300,29 @@ function UsersPage() {
               )}
               {!levels.ownerIds.includes(profile.id) && levels.adminIds.includes(profile.id) && (
                 <Badge variant="outline" className="text-[9px] uppercase">
-                  Admin
+                  Platform admin
                 </Badge>
               )}
+              {levels.managerIds.includes(profile.id) && (
+                <Badge variant="outline" className="text-[9px] uppercase">
+                  Manager
+                </Badge>
+              )}
+              {!levels.ownerIds.includes(profile.id) &&
+                !levels.adminIds.includes(profile.id) &&
+                profile.id !== user?.id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={busy}
+                    onClick={() =>
+                      void toggleManager(profile.id, !levels.managerIds.includes(profile.id))
+                    }
+                  >
+                    {levels.managerIds.includes(profile.id) ? "Remove manager" : "Make manager"}
+                  </Button>
+                )}
               <Button
                 variant="outline"
                 size="sm"
