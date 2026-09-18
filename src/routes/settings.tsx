@@ -34,6 +34,7 @@ function SettingsPage() {
   const { user, displayName, loading } = useAuth();
 
   /* ---- password change ---- */
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordBusy, setPasswordBusy] = useState(false);
@@ -55,6 +56,10 @@ function SettingsPage() {
   }
 
   const changePassword = async () => {
+    if (!currentPassword) {
+      toast.error("Enter your current password first");
+      return;
+    }
     if (newPassword.length < 8) {
       toast.error("Password must be at least 8 characters");
       return;
@@ -63,11 +68,23 @@ function SettingsPage() {
       toast.error("The two passwords don't match");
       return;
     }
+    if (newPassword === currentPassword) {
+      toast.error("The new password must be different from the current one");
+      return;
+    }
     setPasswordBusy(true);
     try {
+      // Re-authenticate to prove the user knows the current password.
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: currentPassword,
+      });
+      if (verifyError) throw new Error("Your current password is incorrect");
+
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       toast.success("Password changed");
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (error) {
@@ -144,6 +161,18 @@ function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="current-pass">Current password</Label>
+            <Input
+              id="current-pass"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              maxLength={72}
+              placeholder="Enter your current password"
+              onChange={(e) => setCurrentPassword(e.target.value)}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="new-pass">New password</Label>
             <Input
