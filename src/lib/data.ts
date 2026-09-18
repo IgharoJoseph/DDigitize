@@ -167,6 +167,17 @@ type FeatureInsert = Database["public"]["Tables"]["features"]["Insert"];
 type FeatureUpdate = Database["public"]["Tables"]["features"]["Update"];
 type Json = FeatureInsert["geometry"];
 
+/**
+ * The database refuses shapes that fall outside the person's assigned work
+ * area. That refusal is turned into plain wording here.
+ */
+function saveFeature<T>(result: { data: T; error: { message: string } | null }): NonNullable<T> {
+  if (result.error?.message.includes("Outside assigned work area")) {
+    throw new Error("That shape falls outside your assigned work area, so it was not saved.");
+  }
+  return unwrap(result);
+}
+
 export async function createFeature(input: NewFeature): Promise<FeatureRow> {
   const payload: FeatureInsert = {
     project_id: input.projectId,
@@ -179,7 +190,7 @@ export async function createFeature(input: NewFeature): Promise<FeatureRow> {
     length_m: input.lengthM,
     created_by: input.createdBy,
   };
-  return unwrap(await supabase.from("features").insert(payload).select("*").single());
+  return saveFeature(await supabase.from("features").insert(payload).select("*").single());
 }
 
 export type FeaturePatch = {
@@ -203,7 +214,9 @@ export async function updateFeature(id: string, patch: FeaturePatch): Promise<Fe
   if (patch.categoryId !== undefined) payload["category_id"] = patch.categoryId;
   if (patch.workAreaId !== undefined) payload["work_area_id"] = patch.workAreaId;
   if (patch.reviewNote !== undefined) payload["review_note"] = patch.reviewNote;
-  return unwrap(await supabase.from("features").update(payload).eq("id", id).select("*").single());
+  return saveFeature(
+    await supabase.from("features").update(payload).eq("id", id).select("*").single(),
+  );
 }
 
 export async function deleteFeature(id: string) {

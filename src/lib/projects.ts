@@ -59,6 +59,7 @@ export const PROJECT_ROLES: { value: ProjectRole; label: string; blurb: string }
 ];
 
 export const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
+  { value: "planning", label: "Planning" },
   { value: "draft", label: "Draft" },
   { value: "setup", label: "Setup" },
   { value: "active", label: "Active" },
@@ -74,7 +75,8 @@ export const AREA_STATUSES: { value: AreaStatus; label: string }[] = [
   { value: "assigned", label: "Assigned" },
   { value: "in_progress", label: "In progress" },
   { value: "submitted", label: "Submitted" },
-  { value: "complete", label: "Complete" },
+  { value: "under_review", label: "Under review" },
+  { value: "complete", label: "Completed" },
 ];
 
 export const pk = {
@@ -83,6 +85,7 @@ export const pk = {
   myMemberships: ["my-memberships"] as const,
   areas: (projectId: string) => ["work-areas", projectId] as const,
   assignments: (projectId: string) => ["area-assignments", projectId] as const,
+  assignmentHistory: (projectId: string) => ["assignment-history", projectId] as const,
 };
 
 function unwrap<T>(result: { data: T; error: { message: string } | null }): NonNullable<T> {
@@ -133,7 +136,15 @@ export async function createProject(input: {
 
 export async function updateProject(
   projectId: string,
-  patch: { name?: string; description?: string | null; status?: ProjectStatus },
+  patch: {
+    name?: string;
+    description?: string | null;
+    status?: ProjectStatus;
+    client_ref?: string | null;
+    crs?: string;
+    start_date?: string | null;
+    due_date?: string | null;
+  },
 ): Promise<Project> {
   return unwrap(
     await supabase.from("projects").update(patch).eq("id", projectId).select("*").single(),
@@ -236,6 +247,20 @@ export async function updateWorkArea(
 export async function deleteWorkArea(id: string) {
   const { error } = await supabase.from("work_areas").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+/** Every assign / unassign event, newest first. Written by the database. */
+export type AssignmentHistoryRow = Database["public"]["Tables"]["area_assignment_history"]["Row"];
+
+export async function fetchAssignmentHistory(projectId: string): Promise<AssignmentHistoryRow[]> {
+  return unwrap(
+    await supabase
+      .from("area_assignment_history")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(300),
+  );
 }
 
 export function areaBoundary(area: WorkArea): Polygon {

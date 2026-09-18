@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Grid3x3, Trash2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { safeBounds } from "@/lib/geo";
 import {
   AREA_STATUSES,
   areaBoundary,
+  fetchAssignmentHistory,
   createWorkArea,
   deleteWorkArea,
   gridAreas,
@@ -36,6 +37,11 @@ export function AreasTab({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
   const areasQuery = useProjectAreas(projectId);
   const areas = areasQuery.data ?? [];
+  const historyQuery = useQuery({
+    queryKey: pk.assignmentHistory(projectId),
+    queryFn: () => fetchAssignmentHistory(projectId),
+  });
+  const history = historyQuery.data ?? [];
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [grid, setGrid] = useState({
@@ -260,7 +266,8 @@ export function AreasTab({ projectId }: { projectId: string }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{area.name}</p>
                   <p className="readout text-[10px] text-muted-foreground">
-                    {ring.length} boundary points
+                    {ring.length} boundary points · updated{" "}
+                    {new Date(area.updated_at ?? area.created_at).toLocaleDateString()}
                   </p>
                 </div>
                 <Badge variant="outline" className="text-[9px] uppercase">
@@ -297,6 +304,36 @@ export function AreasTab({ projectId }: { projectId: string }) {
             <p className="text-sm text-muted-foreground">
               No work areas yet. Contributors need at least one before they can digitize.
             </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-panel">
+        <CardHeader>
+          <CardTitle className="text-base">Assignment history</CardTitle>
+          <CardDescription>
+            Every time an area is handed to someone or taken back, the database records it here.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          {history.map((row) => (
+            <div
+              key={row.id}
+              className="flex flex-wrap items-center gap-2 rounded border border-border bg-card/60 px-3 py-1.5 text-xs"
+            >
+              <Badge variant="outline" className="text-[9px] uppercase">
+                {row.action}
+              </Badge>
+              <span className="truncate">
+                {areas.find((area) => area.id === row.work_area_id)?.name ?? "Deleted area"}
+              </span>
+              <span className="readout ml-auto text-[10px] text-muted-foreground">
+                {new Date(row.created_at).toLocaleString()}
+              </span>
+            </div>
+          ))}
+          {history.length === 0 && (
+            <p className="text-sm text-muted-foreground">No assignments recorded yet.</p>
           )}
         </CardContent>
       </Card>

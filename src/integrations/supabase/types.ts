@@ -70,6 +70,44 @@ export type Database = {
         }
         Relationships: []
       }
+      area_assignment_history: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          project_id: string
+          user_id: string
+          work_area_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          project_id: string
+          user_id: string
+          work_area_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string
+          user_id?: string
+          work_area_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "area_assignment_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       area_assignments: {
         Row: {
           assigned_by: string | null
@@ -527,6 +565,7 @@ export type Database = {
           notes: string | null
           project_id: string
           status: Database["public"]["Enums"]["area_status"]
+          updated_at: string | null
         }
         Insert: {
           boundary: Json
@@ -537,6 +576,7 @@ export type Database = {
           notes?: string | null
           project_id: string
           status?: Database["public"]["Enums"]["area_status"]
+          updated_at?: string | null
         }
         Update: {
           boundary?: Json
@@ -547,6 +587,7 @@ export type Database = {
           notes?: string | null
           project_id?: string
           status?: Database["public"]["Enums"]["area_status"]
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -600,6 +641,10 @@ export type Database = {
           under_review: number
         }[]
       }
+      geometry_within_boundary: {
+        Args: { _boundary: Json; _geom: Json }
+        Returns: boolean
+      }
       has_project_permission: {
         Args: { _permission: string; _project_id: string; _user_id: string }
         Returns: boolean
@@ -627,6 +672,11 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      jsonb_coord_pairs: { Args: { _geom: Json }; Returns: number[][] }
+      point_in_ring: {
+        Args: { _lat: number; _lng: number; _ring: Json }
+        Returns: boolean
+      }
       project_authority: {
         Args: { _project_id: string; _user_id: string }
         Returns: number
@@ -650,6 +700,7 @@ export type Database = {
         | "in_progress"
         | "submitted"
         | "complete"
+        | "under_review"
       field_type: "text" | "number" | "boolean" | "select"
       geom_type: "polygon" | "line" | "point"
       project_role: "manager" | "supervisor" | "contributor"
@@ -662,6 +713,7 @@ export type Database = {
         | "on_hold"
         | "completed"
         | "archived"
+        | "planning"
       review_status:
         | "draft"
         | "submitted"
@@ -802,6 +854,7 @@ export const Constants = {
         "in_progress",
         "submitted",
         "complete",
+        "under_review",
       ],
       field_type: ["text", "number", "boolean", "select"],
       geom_type: ["polygon", "line", "point"],
@@ -815,6 +868,7 @@ export const Constants = {
         "on_hold",
         "completed",
         "archived",
+        "planning",
       ],
       review_status: [
         "draft",

@@ -85,6 +85,13 @@
       "when": 1789744159884,
       "tag": "0011_clean_assignments_when_membership_removed",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789745287081,
+      "tag": "0012_work_area_lifecycle_history_and_spatial_guard",
+      "breakpoints": true
     }
   ]
 }
