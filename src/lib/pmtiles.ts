@@ -1,15 +1,4 @@
-import { addProtocol, setWorkerUrl } from "maplibre-gl";
-// MapLibre derives its worker URL from its own module URL, which breaks once the
-// bundler rewrites that path (dev pre-bundling, production chunks). Without a
-// worker, GeoJSON sources never tile, so digitized shapes and work areas stay
-// invisible while raster imagery still draws.
-//
-// "?worker&url" makes the bundler compile the worker WITH its dependencies and
-// hand back the URL of that bundle. Plain "?url" only copies the single file,
-// whose relative import of maplibre-gl-shared.mjs then 404s and kills the
-// worker again — which is exactly why shapes sometimes did not appear.
-import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
-
+import { addProtocol } from "maplibre-gl";
 import { PMTiles, Protocol } from "pmtiles";
 
 import { safeBounds, safeLngLat } from "./geo";
@@ -19,23 +8,22 @@ let registered = false;
 /** Register the pmtiles:// protocol with MapLibre exactly once per page. */
 export function ensurePmtilesProtocol() {
   if (registered || typeof window === "undefined") return;
-  setWorkerUrl(maplibreWorkerUrl);
   const protocol = new Protocol({ metadata: true });
   addProtocol("pmtiles", protocol.tile);
   registered = true;
 }
 
 export type InspectResult = {
-  ok: boolean;
-  message: string;
-  tileType?: string;
-  minZoom?: number;
-  maxZoom?: number;
-  bounds?: { west: number; south: number; east: number; north: number } | undefined;
-  center?: { lng: number; lat: number; zoom: number } | undefined;
-  tileCount?: number;
-  byteRangeMs?: number;
-  metadata?: Record<string, unknown>;
+  ok: boolean
+  message: string
+  tileType?: string
+  minZoom?: number
+  maxZoom?: number
+  bounds?: { west: number; south: number; east: number; north: number } | undefined
+  center?: { lng: number; lat: number; zoom: number } | undefined
+  tileCount?: number
+  byteRangeMs?: number
+  metadata?: Record<string, unknown>
 };
 
 const TILE_TYPES: Record<number, string> = {

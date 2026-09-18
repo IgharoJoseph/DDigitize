@@ -5,7 +5,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AreasTab } from "@/components/setup/AreasTab";
-import { DetailsTab } from "@/components/setup/DetailsTab";
 import { ImageryTab } from "@/components/setup/ImageryTab";
 import { LayersTab } from "@/components/setup/LayersTab";
 import { TeamTab } from "@/components/setup/TeamTab";
@@ -34,7 +33,6 @@ export const Route = createFileRoute("/p/$projectId/setup")({
 });
 
 const TABS = [
-  { id: "details", label: "Details" },
   { id: "layers", label: "Feature layers" },
   { id: "imagery", label: "Imagery" },
   { id: "areas", label: "Work areas" },
@@ -81,14 +79,11 @@ function SetupPage() {
     { label: "Team added", done: (membersQuery.data ?? []).length > 1 },
   ];
 
-  const lifecycleLabel = (status: ProjectStatus) =>
-    PROJECT_STATUSES.find((item) => item.value === status)?.label ?? status;
-
   const setStatus = async (status: ProjectStatus) => {
     try {
       await updateProject(projectId, { status });
       void projectQuery.refetch();
-      toast.success(`Project marked as ${lifecycleLabel(status)}`);
+      toast.success(`Project marked as ${status}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not change the status");
     }
@@ -155,7 +150,6 @@ function SetupPage() {
           ))}
         </div>
 
-        {tab === "details" && <DetailsTab projectId={projectId} />}
         {tab === "layers" && <LayersTab projectId={projectId} />}
         {tab === "imagery" && <ImageryTab projectId={projectId} />}
         {tab === "areas" && <AreasTab projectId={projectId} />}

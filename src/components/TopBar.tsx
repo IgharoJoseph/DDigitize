@@ -1,34 +1,27 @@
 import { Link } from "@tanstack/react-router";
-import { Eye, LogOut, Moon, Radar, Sun } from "lucide-react";
+import { LogOut, Moon, Radar, Sun } from "lucide-react";
 
-import { MobileNavButton } from "@/components/AppSidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
+import { useRoleSimulation } from "@/hooks/useRoleSimulation";
 
 export function TopBar() {
-  const {
-    user,
-    isAdmin,
-    isManager,
-    displayName,
-    signOut,
-    previewRole,
-    canPreviewRoles,
-    setPreviewRole,
-  } = useAuth();
+  const { user, isAdmin, displayName, signOut } = useAuth();
   const { theme, toggle } = useTheme();
+  const { isSimulating, activeRole } = useRoleSimulation();
+  const effectiveAdmin = isAdmin && !isSimulating;
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-panel px-3">
-      <MobileNavButton />
       <Link to="/" className="flex items-center gap-2">
         <Radar className="size-5 text-primary" />
-        <span className="text-sm font-semibold tracking-tight">DDigitize</span>
+        <span className="text-sm font-semibold tracking-tight">DroneTrace</span>
       </Link>
 
-      <nav className="hidden items-center gap-1 sm:flex">
+      <nav className="flex items-center gap-1">
         <Link
           to="/"
           activeOptions={{ exact: true }}
@@ -37,7 +30,7 @@ export function TopBar() {
         >
           Projects
         </Link>
-        {(isAdmin || isManager) && (
+        {effectiveAdmin && (
           <Link
             to="/export"
             activeProps={{ className: "bg-secondary text-foreground" }}
@@ -49,31 +42,13 @@ export function TopBar() {
       </nav>
 
       <div className="ml-auto flex items-center gap-2">
-        {canPreviewRoles && (
-          <Button
-            variant={previewRole ? "default" : "outline"}
-            size="sm"
-            className="h-8 gap-1.5 text-xs max-sm:px-2"
-            onClick={() => setPreviewRole(previewRole ? null : "contributor")}
-          >
-            <Eye className="size-3.5" />
-            <span className="hidden sm:inline">
-              {previewRole ? "Exit contributor view" : "View as contributor"}
-            </span>
-          </Button>
+        {effectiveAdmin && (
+          <Badge variant="outline" className="text-[9px] uppercase">Platform Administrator</Badge>
         )}
-        {previewRole && <Badge className="text-[9px] uppercase">contributor view</Badge>}
-        {isAdmin ? (
-          <Badge variant="outline" className="hidden text-[9px] uppercase sm:inline-flex">
-            System administrator
-          </Badge>
-        ) : (
-          isManager && (
-            <Badge variant="outline" className="hidden text-[9px] uppercase sm:inline-flex">
-              Manager
-            </Badge>
-          )
+        {isAdmin && isSimulating && (
+          <Badge variant="secondary" className="text-[9px] uppercase">{activeRole.replace("_", " ")}</Badge>
         )}
+        <RoleSwitcher />
         <Button
           variant="ghost"
           size="icon"

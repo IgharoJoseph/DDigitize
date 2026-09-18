@@ -3,6 +3,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoleSimulation } from "@/hooks/useRoleSimulation";
 import { fetchProfiles, qk } from "@/lib/data";
 import { fetchAuditLog, ok } from "@/lib/overview";
 import { fetchProjects, pk } from "@/lib/projects";
@@ -10,13 +11,13 @@ import { fetchProjects, pk } from "@/lib/projects";
 export const Route = createFileRoute("/audit")({
   head: () => ({
     meta: [
-      { title: "Audit log — DDigitize" },
+      { title: "Audit log — DroneTrace" },
       {
         name: "description",
         content:
           "Who created, edited, submitted, approved or exported what, with the project and timestamp.",
       },
-      { property: "og:title", content: "DDigitize audit log" },
+      { property: "og:title", content: "DroneTrace audit log" },
       {
         property: "og:description",
         content: "A complete record of production actions across every project.",
@@ -28,24 +29,13 @@ export const Route = createFileRoute("/audit")({
 
 function AuditPage() {
   const { user, isAdmin, loading } = useAuth();
+  const { isSimulating } = useRoleSimulation();
 
-  const logQuery = useQuery({
-    queryKey: ok.audit,
-    queryFn: () => fetchAuditLog(),
-    enabled: isAdmin,
-  });
-  const profilesQuery = useQuery({
-    queryKey: qk.profiles,
-    queryFn: fetchProfiles,
-    enabled: isAdmin,
-  });
-  const projectsQuery = useQuery({
-    queryKey: pk.projects,
-    queryFn: fetchProjects,
-    enabled: isAdmin,
-  });
+  const logQuery = useQuery({ queryKey: ok.audit, queryFn: () => fetchAuditLog(), enabled: isAdmin });
+  const profilesQuery = useQuery({ queryKey: qk.profiles, queryFn: fetchProfiles, enabled: isAdmin });
+  const projectsQuery = useQuery({ queryKey: pk.projects, queryFn: fetchProjects, enabled: isAdmin });
 
-  if (!loading && !isAdmin) {
+  if (!loading && (!isAdmin || isSimulating)) {
     return (
       <div className="flex flex-1 items-center justify-center px-4">
         <div className="max-w-sm text-center">

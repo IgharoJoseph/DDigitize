@@ -15,17 +15,17 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Props = {
-  categories: CategoryWithFields[];
-  features: FeatureRow[];
-  profiles: Profile[];
-  hidden: Set<string>;
-  onToggleCategory: (id: string) => void;
-  search: string;
-  onSearch: (value: string) => void;
-  contributorFilter: string;
-  onContributorFilter: (value: string) => void;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
+  categories: CategoryWithFields[]
+  features: FeatureRow[]
+  profiles: Profile[]
+  hidden: Set<string>
+  onToggleCategory: (id: string) => void
+  search: string
+  onSearch: (value: string) => void
+  contributorFilter: string
+  onContributorFilter: (value: string) => void
+  selectedId: string | null
+  onSelect: (id: string) => void
 };
 
 export function LayersPanel({

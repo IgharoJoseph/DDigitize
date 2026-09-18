@@ -4,72 +4,31 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { supabase } from "@/integrations/supabase/client";
 
 type AuthState = {
-  user: User | null;
-  session: Session | null;
-  isAdmin: boolean;
-  /** Organisation-wide manager: operational oversight across projects. */
-  isManager: boolean;
-  /** UI preview: when set, the app is rendered as if this were the user's role. */
-  previewRole: "contributor" | null;
-  /** True when the signed-in account really is an admin/owner (ignores preview). */
-  canPreviewRoles: boolean;
-  setPreviewRole: (role: "contributor" | null) => void;
-  /** The single account with ultimate authority: the project owner. */
-  isOwner: boolean;
-  /** Authority on the shared scale: owner 100, admin 90, otherwise 0. */
-  authority: number;
-  loading: boolean;
-  displayName: string;
-  signOut: () => Promise<void>;
+  user: User | null
+  session: Session | null
+  isAdmin: boolean
+  loading: boolean
+  displayName: string
+  signOut: () => Promise<void>
 };
 
 const AuthContext = createContext<AuthState | null>(null);
 
-const PREVIEW_KEY = "ddigitize.preview-role";
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
-  const [isManager, setIsManager] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [previewRole, setPreviewRoleState] = useState<"contributor" | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.localStorage.getItem(PREVIEW_KEY) === "contributor") {
-      setPreviewRoleState("contributor");
-    }
-  }, []);
-
-  const setPreviewRole = (role: "contributor" | null) => {
-    setPreviewRoleState(role);
-    if (typeof window === "undefined") return;
-    if (role) window.localStorage.setItem(PREVIEW_KEY, role);
-    else window.localStorage.removeItem(PREVIEW_KEY);
-  };
 
   useEffect(() => {
     let active = true;
 
     const loadRole = async (userId: string | undefined) => {
       if (!userId) {
-        if (active) {
-          setIsAdmin(false);
-          setIsOwner(false);
-          setIsManager(false);
-        }
+        if (active) setIsAdmin(false);
         return;
       }
-      const [{ data: admin }, { data: owner }, { data: manager }] = await Promise.all([
-        supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-        supabase.rpc("is_owner", { _user_id: userId }),
-        supabase.rpc("is_org_manager", { _user_id: userId }),
-      ]);
-      if (!active) return;
-      setIsAdmin(Boolean(admin) || Boolean(owner));
-      setIsOwner(Boolean(owner));
-      setIsManager(Boolean(manager));
+      const { data } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+      if (active) setIsAdmin(Boolean(data));
     };
 
     supabase.auth.getSession().then(({ data }) => {
@@ -93,27 +52,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthState>(() => {
     const user = session?.user ?? null;
-    const previewing = previewRole !== null && (isAdmin || isOwner);
-    const effectiveAdmin = previewing ? false : isAdmin;
-    const effectiveOwner = previewing ? false : isOwner;
     const meta = (user?.user_metadata ?? {}) as { display_name?: string };
     return {
       user,
       session,
-      isAdmin: effectiveAdmin,
-      isManager: previewing ? false : isManager,
-      isOwner: effectiveOwner,
-      previewRole: previewing ? previewRole : null,
-      canPreviewRoles: isAdmin || isOwner,
-      setPreviewRole,
-      authority: effectiveOwner ? 100 : effectiveAdmin ? 90 : previewing ? 0 : isManager ? 60 : 0,
+      isAdmin,
       loading,
       displayName: meta.display_name ?? user?.email?.split("@")[0] ?? "Guest",
       signOut: async () => {
         await supabase.auth.signOut();
       },
     };
-  }, [session, isAdmin, isOwner, isManager, loading, previewRole]);
+  }, [session, isAdmin, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

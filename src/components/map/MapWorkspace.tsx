@@ -33,41 +33,26 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { useProjectAccess, useProjectAreas } from "@/hooks/useProjectRole";
-import { areaBoundary, areaForGeometry, fetchProject, pk, type WorkArea } from "@/lib/projects";
+import { areaBoundary, areaForGeometry, type WorkArea } from "@/lib/projects";
 import { blockingIssues, validateFeature } from "@/lib/validation";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { basemapStyle, type BasemapId } from "@/lib/basemaps";
 import {
   createFeature,
-  defaultAttributes,
-  removeFeature,
-  restoreFeature,
+  deleteFeature,
   featureAttributes,
   featureGeometry,
   fetchCategories,
   fetchDatasets,
-  fetchFeatureCount,
   fetchFeatures,
   fetchProfiles,
-  layerDisplay,
   logActivity,
   qk,
   updateFeature,
   type Attributes,
-  type FeatureBounds,
   type FeaturePatch,
   type FeatureRow,
   type GeomType,
 } from "@/lib/data";
-
 import {
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
@@ -106,19 +91,6 @@ const DRAW_MODE_FOR_GEOMETRY: Record<string, string> = {
 
 type UndoStep = { undo: () => Promise<void>; redo: () => Promise<void> };
 
-/** Above this many features the map reads only what the viewport covers. */
-const LARGE_PROJECT = 4000;
-
-/**
- * MapLibre's isStyleLoaded() also waits for every source's tiles, so a large
- * PMTiles archive that is still streaming keeps it false indefinitely. Adding
- * sources, layers and the drawing engine only needs the style itself parsed.
- */
-function styleParsed(map: MapLibreMap): boolean {
-  const style = (map as unknown as { style?: { _loaded?: boolean } }).style;
-  return Boolean(style?._loaded);
-}
-
 /** Tracks the theme class on <html> so the map restyles with the app toggle. */
 function useIsDarkTheme() {
   const [isDark, setIsDark] = useState(true);
@@ -151,8 +123,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   const [datasetId, setDatasetId] = useState<string | null>(null);
   const [opacity, setOpacity] = useState(1);
   const [imageryVisible, setImageryVisible] = useState(true);
-  const [imageryLoading, setImageryLoading] = useState(false);
-
   const [tool, setTool] = useState<Tool>("pan");
   const [drawCategoryId, setDrawCategoryId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -162,25 +132,13 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   const [cursor, setCursor] = useState<{ lng: number; lat: number } | null>(null);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [centreLat, setCentreLat] = useState(0);
-  // Current map bounds, used to read features by viewport on large projects.
-  const [viewport, setViewport] = useState<FeatureBounds | null>(null);
-
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   // Bumped once each new style finishes loading; the drawing layers live in the
   // style, so they are rebuilt per epoch.
   const [styleEpoch, setStyleEpoch] = useState(0);
-  // Bumped when the overlay sources are (re)created on the map.
-  const [overlayEpoch, setOverlayEpoch] = useState(0);
-  // Bumped when the drawing engine attaches, so its listeners can be wired up.
-  const [drawReady, setDrawReady] = useState(0);
-
   const [undoStack, setUndoStack] = useState<UndoStep[]>([]);
   const [redoStack, setRedoStack] = useState<UndoStep[]>([]);
-
-  // Removing work always asks for a reason, which is kept on the record.
-  const [removeOpen, setRemoveOpen] = useState(false);
-  const [removeReason, setRemoveReason] = useState("");
 
   const categoriesQuery = useQuery({
     queryKey: qk.categories(projectId),
@@ -190,42 +148,13 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     queryKey: qk.datasets(projectId),
     queryFn: () => fetchDatasets(projectId),
   });
-  // Large projects are read by viewport instead of whole-project, using the
-  // stored bounding boxes and their index.
-  const featureCountQuery = useQuery({
-    queryKey: [...qk.features(projectId), "count"],
-    queryFn: () => fetchFeatureCount(projectId),
-    staleTime: 60_000,
-  });
-  const largeProject = (featureCountQuery.data ?? 0) > LARGE_PROJECT;
-  const loadBounds = largeProject ? viewport : null;
-  const boundsKey = loadBounds
-    ? [loadBounds.west, loadBounds.south, loadBounds.east, loadBounds.north]
-        .map((value) => value.toFixed(2))
-        .join(",")
-    : "all";
   const featuresQuery = useQuery({
-    queryKey: [...qk.features(projectId), boundsKey],
-    queryFn: () => fetchFeatures(projectId, loadBounds),
-    enabled: !largeProject || Boolean(loadBounds),
-    placeholderData: (previous) => previous,
+    queryKey: qk.features(projectId),
+    queryFn: () => fetchFeatures(projectId),
   });
   const profilesQuery = useQuery({ queryKey: qk.profiles, queryFn: fetchProfiles });
-  const projectQuery = useQuery({
-    queryKey: ["project", projectId],
-    queryFn: () => fetchProject(projectId),
-  });
 
-  const allCategories = categoriesQuery.data ?? [];
-  // Retired layers stay on existing features but are no longer offered, and a
-  // layer hidden from contributors is only listed for reviewers/managers.
-  const categories = useMemo(
-    () =>
-      allCategories.filter(
-        (item) => item.visible_to_contributors || access.canReview || access.canManage,
-      ),
-    [allCategories, access.canReview, access.canManage],
-  );
+  const categories = categoriesQuery.data ?? [];
   const datasets = useMemo(
     () => (datasetsQuery.data ?? []).filter((item) => item.is_published || access.canManage),
     [datasetsQuery.data, access.canManage],
@@ -233,7 +162,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   const features = featuresQuery.data ?? [];
   const profiles = profilesQuery.data ?? [];
   const areas = areasQuery.data ?? [];
-  const projectBoundary = (projectQuery.data?.boundary ?? null) as Geometry | null;
   const myAreas = useMemo(
     () =>
       access.restrictedToAssignments
@@ -242,31 +170,14 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     [areas, access.restrictedToAssignments, access.assignedAreaIds],
   );
 
-  // Contributors may only draw inside a work area assigned to them. Saying so up
-  // front beats letting them trace a shape the database will refuse. The
-  // database guard stays exactly as it is.
-  const drawBlockedReason = useMemo(() => {
-    if (!access.restrictedToAssignments) return null;
-    if (areas.length === 0)
-      return "This project has no work areas yet. A manager needs to create one and assign it to you before you can digitize.";
-    if (myAreas.length === 0)
-      return "No work area is assigned to you yet. Ask a manager or supervisor to assign one.";
-    return null;
-  }, [access.restrictedToAssignments, areas.length, myAreas.length]);
-
   const dataset = datasets.find((item) => item.id === datasetId) ?? null;
   const selected = features.find((item) => item.id === selectedId) ?? null;
-  const selectedCategory = allCategories.find((item) => item.id === selected?.category_id) ?? null;
-  // Approved features are locked for everyone but reviewers; another person's
-  // feature is editable only where a manager allowed peer editing on the layer.
-  // The database enforces the same rule, so this only shapes the interface.
+  // Approved features are locked for everyone but reviewers.
   const canEditSelected = Boolean(
     selected &&
-    user &&
-    (access.canReview ||
-      (selected.status !== "verified" &&
-        access.can("edit") &&
-        (selected.created_by === user.id || selectedCategory?.editable_by_peers === true))),
+      user &&
+      (access.canReview ||
+        (selected.created_by === user.id && selected.status !== "verified")),
   );
 
   const invalidateFeatures = useCallback(() => {
@@ -274,110 +185,43 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     void queryClient.invalidateQueries({ queryKey: qk.activity(projectId) });
   }, [queryClient, projectId]);
 
-  // Open on the sharpest published dataset so contributors land on real imagery
-  // rather than a coarse low-zoom archive.
+  // Open on the first published dataset so contributors land on imagery.
   useEffect(() => {
     if (datasetId || datasets.length === 0) return;
-    const published = datasets.filter((item) => item.is_published);
-    const pool = published.length > 0 ? published : datasets;
-    const best = [...pool].sort((a, b) => (b.max_zoom ?? 0) - (a.max_zoom ?? 0))[0];
-    if (best) setDatasetId(best.id);
+    const first = datasets.find((item) => item.is_published) ?? datasets[0];
+    if (first) setDatasetId(first.id);
   }, [datasets, datasetId]);
-
-  // One "started work" entry per person per session, for the timeline.
-  useEffect(() => {
-    if (!user) return;
-    const sessionKey = `ddigitize.started.${projectId}`;
-    try {
-      if (window.sessionStorage.getItem(sessionKey)) return;
-      window.sessionStorage.setItem(sessionKey, "1");
-    } catch {
-      return;
-    }
-    void logActivity(projectId, "work.started", "Opened the project to digitize");
-  }, [projectId, user]);
 
   /* ---------------- autosave ---------------- */
 
-  // Unsaved edits are mirrored in this browser so a crash, a closed tab or a
-  // dropped connection does not lose them: they are replayed on the next visit.
-  const recoveryKey = `ddigitize.unsaved.${projectId}`;
-
-  const rememberPending = useCallback(() => {
-    try {
-      const entries = Array.from(pendingRef.current.entries());
-      if (entries.length === 0) window.localStorage.removeItem(recoveryKey);
-      else window.localStorage.setItem(recoveryKey, JSON.stringify(entries));
-    } catch {
-      /* private browsing or a full store: autosave still works normally */
-    }
-  }, [recoveryKey]);
-
   const flush = useCallback(async () => {
     const entries = Array.from(pendingRef.current.entries());
+    pendingRef.current.clear();
     if (entries.length === 0) return;
     setSaveStatus("saving");
     try {
       for (const [id, patch] of entries) {
         await updateFeature(id, patch);
-        // Only drop an edit once the database has confirmed it.
-        pendingRef.current.delete(id);
       }
-      rememberPending();
       setSaveStatus("saved");
       invalidateFeatures();
       setTimeout(() => setSaveStatus((current) => (current === "saved" ? "idle" : current)), 2500);
     } catch (error) {
-      rememberPending();
       setSaveStatus("error");
       toast.error(error instanceof Error ? error.message : "Could not save this edit");
     }
-  }, [invalidateFeatures, rememberPending]);
+  }, [invalidateFeatures]);
 
   const queuePatch = useCallback(
     (id: string, patch: FeaturePatch) => {
       const merged = { ...(pendingRef.current.get(id) ?? {}), ...patch };
       pendingRef.current.set(id, merged);
-      rememberPending();
       setSaveStatus("saving");
       if (flushTimer.current) clearTimeout(flushTimer.current);
       flushTimer.current = setTimeout(() => void flush(), 700);
     },
-    [flush, rememberPending],
+    [flush],
   );
-
-  // Replay anything left unsaved from a previous visit, once.
-  const recoveredRef = useRef(false);
-  useEffect(() => {
-    if (recoveredRef.current || !user) return;
-    recoveredRef.current = true;
-    let stored: [string, FeaturePatch][] = [];
-    try {
-      stored = JSON.parse(window.localStorage.getItem(recoveryKey) ?? "[]") as [
-        string,
-        FeaturePatch,
-      ][];
-    } catch {
-      stored = [];
-    }
-    if (!Array.isArray(stored) || stored.length === 0) return;
-    for (const [id, patch] of stored) pendingRef.current.set(id, patch);
-    toast.info("Recovering edits that had not been saved yet.");
-    void flush();
-  }, [flush, recoveryKey, user]);
-
-  // Save on the way out, so leaving the page does not strand an edit.
-  useEffect(() => {
-    const onHide = () => {
-      if (pendingRef.current.size > 0) void flush();
-    };
-    window.addEventListener("pagehide", onHide);
-    document.addEventListener("visibilitychange", onHide);
-    return () => {
-      window.removeEventListener("pagehide", onHide);
-      document.removeEventListener("visibilitychange", onHide);
-    };
-  }, [flush]);
 
   const pushUndo = useCallback((step: UndoStep) => {
     setUndoStack((stack) => [...stack.slice(-49), step]);
@@ -399,8 +243,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       attributionControl: { compact: true },
     });
     mapRef.current = map;
-    map.on("error", (event) => console.error("[map]", event.error?.message ?? event));
-
     map.addControl(new NavigationControl({ visualizePitch: false }), "bottom-right");
 
     map.on("mousemove", (event) => {
@@ -413,24 +255,10 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       setCentreLat(lngLatOrDefault(map.getCenter().lng, map.getCenter().lat)[1]);
     };
     map.on("move", syncView);
-    // Viewport bounds, padded a little so panning does not reveal empty edges.
-    const syncViewport = () => {
-      const bounds = map.getBounds();
-      const padLng = (bounds.getEast() - bounds.getWest()) * 0.25;
-      const padLat = (bounds.getNorth() - bounds.getSouth()) * 0.25;
-      setViewport({
-        west: Math.max(bounds.getWest() - padLng, -180),
-        south: Math.max(bounds.getSouth() - padLat, -90),
-        east: Math.min(bounds.getEast() + padLng, 180),
-        north: Math.min(bounds.getNorth() + padLat, 90),
-      });
-    };
-    map.on("moveend", syncViewport);
     // "idle" (not "load") means the style is fully parsed, so addSource/addLayer
     // and the drawing adapter cannot hit "Style is not done loading".
     map.once("idle", () => {
       syncView();
-      syncViewport();
       setMapReady(true);
     });
 
@@ -448,146 +276,108 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
 
   const applyOverlays = useCallback(() => {
     const map = mapRef.current;
-    if (!map || !styleParsed(map)) return;
+    if (!map || !map.isStyleLoaded()) return;
+
 
     // styledata can fire before the style is fully parsed, and MapLibre throws
     // "Style is not done loading" from addSource. The retry happens on the next
     // styledata/idle event, so swallowing it here is safe.
     try {
-      if (dataset && !map.getSource(IMAGERY_SOURCE)) {
-        const bounds = safeBounds(dataset.bounds);
-        map.addSource(IMAGERY_SOURCE, {
-          type: "raster",
-          url: `pmtiles://${dataset.url}`,
-          // GDAL/pmtiles archives are 256 px unless they advertise 512 in the
-          // file name; declaring the wrong size halves the visible resolution.
-          tileSize: /512/.test(dataset.url) ? 512 : 256,
-          // The source keeps its own minzoom so MapLibre does not request tiles
-          // the archive does not hold, but the layer must stay unrestricted so
-          // the deepest tiles are over-zoomed instead of disappearing.
-          minzoom: dataset.min_zoom ?? 0,
-          maxzoom: dataset.max_zoom ?? 22,
-          ...(bounds
-            ? {
-                bounds: [bounds.west, bounds.south, bounds.east, bounds.north] as [
-                  number,
-                  number,
-                  number,
-                  number,
-                ],
-              }
-            : {}),
-        });
-        map.addLayer(
-          {
-            id: IMAGERY_LAYER,
-            type: "raster",
-            source: IMAGERY_SOURCE,
-            // No layer maxzoom: MapLibre keeps over-zooming the deepest available
-            // tiles, so people can magnify past the archive's native resolution.
-            paint: { "raster-opacity": opacity, "raster-resampling": "linear" },
-            layout: { visibility: imageryVisible ? "visible" : "none" },
-          },
-          // Imagery stays underneath the work areas and digitized features when
-          // those layers already exist (e.g. after switching dataset).
-          map.getLayer("dt-area-fill") ? "dt-area-fill" : undefined,
-        );
-      }
+    if (dataset && !map.getSource(IMAGERY_SOURCE)) {
+      const bounds = safeBounds(dataset.bounds);
+      map.addSource(IMAGERY_SOURCE, {
+        type: "raster",
+        url: `pmtiles://${dataset.url}`,
+        tileSize: 512,
+        minzoom: dataset.min_zoom ?? 0,
+        maxzoom: dataset.max_zoom ?? 22,
+        ...(bounds
+          ? { bounds: [bounds.west, bounds.south, bounds.east, bounds.north] as [number, number, number, number] }
+          : {}),
+      });
+      map.addLayer({
+        id: IMAGERY_LAYER,
+        type: "raster",
+        source: IMAGERY_SOURCE,
+        paint: { "raster-opacity": opacity, "raster-resampling": "nearest" },
+        layout: { visibility: imageryVisible ? "visible" : "none" },
+      });
+    }
 
-      if (!map.getSource(AREA_SOURCE)) {
-        map.addSource(AREA_SOURCE, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
-        map.addLayer({
-          id: "dt-area-fill",
-          type: "fill",
-          source: AREA_SOURCE,
-          paint: {
-            "fill-color": ["case", ["get", "mine"], "#14b8a6", "#0f172a"],
-            "fill-opacity": ["case", ["get", "mine"], 0.06, 0.35],
-          },
-        });
-        map.addLayer({
-          id: "dt-area-outline",
-          type: "line",
-          source: AREA_SOURCE,
-          paint: {
-            "line-color": ["case", ["get", "mine"], "#2dd4bf", "#64748b"],
-            "line-width": ["case", ["get", "mine"], 2.5, 1],
-            "line-dasharray": ["case", ["get", "mine"], ["literal", [1, 0]], ["literal", [2, 2]]],
-          },
-        });
-      }
+    if (!map.getSource(AREA_SOURCE)) {
+      map.addSource(AREA_SOURCE, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "dt-area-fill",
+        type: "fill",
+        source: AREA_SOURCE,
+        paint: {
+          "fill-color": ["case", ["get", "mine"], "#14b8a6", "#0f172a"],
+          "fill-opacity": ["case", ["get", "mine"], 0.06, 0.35],
+        },
+      });
+      map.addLayer({
+        id: "dt-area-outline",
+        type: "line",
+        source: AREA_SOURCE,
+        paint: {
+          "line-color": ["case", ["get", "mine"], "#2dd4bf", "#64748b"],
+          "line-width": ["case", ["get", "mine"], 2.5, 1],
+          "line-dasharray": ["case", ["get", "mine"], ["literal", [1, 0]], ["literal", [2, 2]]],
+        },
+      });
+    }
 
-      if (!map.getSource(FEATURE_SOURCE)) {
-        map.addSource(FEATURE_SOURCE, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
-        map.addLayer({
-          id: "dt-fill",
-          type: "fill",
-          source: FEATURE_SOURCE,
-          filter: ["==", ["geometry-type"], "Polygon"],
-          paint: {
-            "fill-color": ["get", "color"],
-            // Per-layer opacity and width come from the layer's display settings.
-            "fill-opacity": [
-              "case",
-              ["get", "isSelected"],
-              0.45,
-              ["coalesce", ["get", "fillOpacity"], 0.22],
-            ],
-          },
-        });
-        map.addLayer({
-          id: "dt-outline",
-          type: "line",
-          source: FEATURE_SOURCE,
-          filter: ["==", ["geometry-type"], "Polygon"],
-          paint: {
-            "line-color": ["get", "color"],
-            "line-width": [
-              "case",
-              ["get", "isSelected"],
-              3,
-              ["coalesce", ["get", "lineWidth"], 1.5],
-            ],
-          },
-        });
-        map.addLayer({
-          id: "dt-line",
-          type: "line",
-          source: FEATURE_SOURCE,
-          filter: ["==", ["geometry-type"], "LineString"],
-          paint: {
-            "line-color": ["get", "color"],
-            "line-width": [
-              "case",
-              ["get", "isSelected"],
-              5,
-              ["*", ["coalesce", ["get", "lineWidth"], 1.5], 1.7],
-            ],
-          },
-        });
-        map.addLayer({
-          id: "dt-point",
-          type: "circle",
-          source: FEATURE_SOURCE,
-          filter: ["==", ["geometry-type"], "Point"],
-          paint: {
-            "circle-color": ["get", "color"],
-            "circle-radius": ["case", ["get", "isSelected"], 8, 5],
-            "circle-stroke-width": 1.5,
-            "circle-stroke-color": "#ffffff",
-          },
-        });
-
-        // The data effects below only run once the sources exist, so they are
-        // re-run whenever the overlay sources are (re)created.
-        setOverlayEpoch((epoch) => epoch + 1);
-      }
+    if (!map.getSource(FEATURE_SOURCE)) {
+      map.addSource(FEATURE_SOURCE, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "dt-fill",
+        type: "fill",
+        source: FEATURE_SOURCE,
+        filter: ["==", ["geometry-type"], "Polygon"],
+        paint: {
+          "fill-color": ["get", "color"],
+          "fill-opacity": ["case", ["get", "isSelected"], 0.45, 0.22],
+        },
+      });
+      map.addLayer({
+        id: "dt-outline",
+        type: "line",
+        source: FEATURE_SOURCE,
+        filter: ["==", ["geometry-type"], "Polygon"],
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["case", ["get", "isSelected"], 3, 1.5],
+        },
+      });
+      map.addLayer({
+        id: "dt-line",
+        type: "line",
+        source: FEATURE_SOURCE,
+        filter: ["==", ["geometry-type"], "LineString"],
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["case", ["get", "isSelected"], 5, 2.5],
+        },
+      });
+      map.addLayer({
+        id: "dt-point",
+        type: "circle",
+        source: FEATURE_SOURCE,
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-color": ["get", "color"],
+          "circle-radius": ["case", ["get", "isSelected"], 8, 5],
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+    }
     } catch {
       /* retried on the next style event */
     }
@@ -607,27 +397,22 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   }, [applyOverlays, mapReady]);
 
   // Basemap / theme switch: MapLibre drops custom sources, so overlays are re-added.
-  // The map is created with this style already, so the first run is skipped —
-  // calling setStyle during the initial load leaves the canvas blank.
-  const styleSignature = `${basemap}:${isDark ? "dark" : "light"}`;
-  const appliedStyle = useRef<string | null>(null);
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    if (appliedStyle.current === null) {
-      appliedStyle.current = styleSignature;
-      return;
-    }
-    if (appliedStyle.current === styleSignature) return;
-    appliedStyle.current = styleSignature;
     map.setStyle(basemapStyle(basemap, isDark), { diff: false });
     map.once("idle", () => setStyleEpoch((epoch) => epoch + 1));
-  }, [basemap, isDark, mapReady, styleSignature]);
+  }, [basemap, isDark, mapReady]);
 
-  // Fly to the imagery: its stored bounds when usable, otherwise its centre.
-  const zoomToImagery = useCallback(() => {
+  // Dataset switch
+  useEffect(() => {
     const map = mapRef.current;
-    if (!map || !dataset) return;
+    if (!map || !mapReady || !map.isStyleLoaded()) return;
+    if (map.getLayer(IMAGERY_LAYER)) map.removeLayer(IMAGERY_LAYER);
+    if (map.getSource(IMAGERY_SOURCE)) map.removeSource(IMAGERY_SOURCE);
+    applyOverlays();
+
+    if (!dataset) return;
     const bounds = safeBounds(dataset.bounds);
     if (bounds) {
       map.fitBounds(
@@ -641,104 +426,8 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     }
     const centre = safeLngLat(dataset.center_lng, dataset.center_lat);
     if (centre) map.flyTo({ center: centre, zoom: Math.max(14, dataset.min_zoom ?? 14) });
-  }, [dataset]);
-
-  // Dataset switch
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady || !styleParsed(map)) return;
-    if (map.getLayer(IMAGERY_LAYER)) map.removeLayer(IMAGERY_LAYER);
-    if (map.getSource(IMAGERY_SOURCE)) map.removeSource(IMAGERY_SOURCE);
-    applyOverlays();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetId, mapReady]);
-
-  // Archives that start at a deep minimum zoom draw nothing at the world view,
-  // so the camera is moved onto the imagery as soon as its layer really exists —
-  // the dataset-switch effect above can run before the style is parsed.
-  const zoomedFor = useRef<string | null>(null);
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady || !datasetId) return;
-    if (zoomedFor.current === datasetId) return;
-    if (!map.getLayer(IMAGERY_LAYER)) return;
-    // A contributor's camera belongs on their own work area; letting the imagery
-    // fit run as well makes the two fly animations fight each other.
-    if (access.restrictedToAssignments && myAreas.length > 0) {
-      zoomedFor.current = datasetId;
-      return;
-    }
-    zoomedFor.current = datasetId;
-    zoomToImagery();
-  }, [
-    datasetId,
-    mapReady,
-    overlayEpoch,
-    styleEpoch,
-    zoomToImagery,
-    access.restrictedToAssignments,
-    myAreas,
-  ]);
-
-  // Streaming indicator: PMTiles tiles arrive over HTTP range requests in rapid
-  // bursts, so the label only appears after a full second of sustained loading
-  // and then stays put for a second — otherwise it strobes while panning.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-    let showTimer: ReturnType<typeof setTimeout> | null = null;
-    let hideTimer: ReturnType<typeof setTimeout> | null = null;
-    let shownAt = 0;
-    let visible = false;
-
-    const show = () => {
-      visible = true;
-      shownAt = Date.now();
-      setImageryLoading(true);
-    };
-    const hide = () => {
-      visible = false;
-      setImageryLoading(false);
-    };
-
-    const update = () => {
-      const source = map.getSource(IMAGERY_SOURCE);
-      const busy = Boolean(source) && !map.areTilesLoaded();
-      if (busy) {
-        if (hideTimer) {
-          clearTimeout(hideTimer);
-          hideTimer = null;
-        }
-        if (visible || showTimer) return;
-        showTimer = setTimeout(() => {
-          showTimer = null;
-          show();
-        }, 1000);
-        return;
-      }
-      if (showTimer) {
-        clearTimeout(showTimer);
-        showTimer = null;
-      }
-      if (!visible || hideTimer) return;
-      const remaining = Math.max(0, 1000 - (Date.now() - shownAt));
-      hideTimer = setTimeout(() => {
-        hideTimer = null;
-        hide();
-      }, remaining);
-    };
-
-    map.on("dataloading", update);
-    map.on("data", update);
-    map.on("idle", update);
-    return () => {
-      if (showTimer) clearTimeout(showTimer);
-      if (hideTimer) clearTimeout(hideTimer);
-      map.off("dataloading", update);
-      map.off("data", update);
-      map.off("idle", update);
-    };
-  }, [mapReady, datasetId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -751,10 +440,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
 
   const visibleFeatures = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const allowed = new Set(categories.map((item) => item.id));
     return features.filter((row) => {
-      // A layer hidden from contributors is not drawn for them either.
-      if (row.category_id && !allowed.has(row.category_id)) return false;
       if (row.category_id && hidden.has(row.category_id)) return false;
       if (contributorFilter !== "all" && row.created_by !== contributorFilter) return false;
       if (!term) return true;
@@ -776,38 +462,29 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     const source = map.getSource(FEATURE_SOURCE);
     if (!source || !("setData" in source)) return;
 
-    const zoomNow = map.getZoom();
     const collection: Feature[] = visibleFeatures
       .filter((row) => row.id !== editingRef.current)
       .filter((row) => isValidGeometry(row.geometry))
       .map((row) => {
         const category = categories.find((item) => item.id === row.category_id);
-        const display = layerDisplay(category);
         return {
           type: "Feature",
-          // No GeoJSON "id": MapLibre only accepts numeric ids, and a UUID keeps
-          // the source from tiling at all. The id travels in properties instead.
+          id: row.id,
           geometry: featureGeometry(row),
           properties: {
             id: row.id,
             color: category?.color ?? "#94a3b8",
             isSelected: row.id === selectedId,
             status: row.status,
-            fillOpacity: display.fillOpacity,
-            lineWidth: display.lineWidth,
-            minZoom: display.minZoom,
           },
         } satisfies Feature;
-      })
-      // Layers configured to appear from a given zoom stay out of the source
-      // until then, which keeps big projects light at overview zooms.
-      .filter((item) => zoomNow >= Number(item.properties?.["minZoom"] ?? 0));
+      });
 
     (source as { setData: (data: unknown) => void }).setData({
       type: "FeatureCollection",
       features: collection,
     });
-  }, [visibleFeatures, categories, selectedId, mapReady, styleEpoch, overlayEpoch, zoom]);
+  }, [visibleFeatures, categories, selectedId, mapReady]);
 
   // Work areas: the ones assigned to this person read as open, the rest dimmed.
   useEffect(() => {
@@ -820,7 +497,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       .filter((area) => Boolean(areaBoundary(area)))
       .map((area) => ({
         type: "Feature",
-        // Same as above: the UUID stays in properties only.
+        id: area.id,
         geometry: areaBoundary(area),
         properties: { id: area.id, name: area.name, mine: mine.has(area.id) },
       }));
@@ -828,7 +505,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       type: "FeatureCollection",
       features: collection,
     });
-  }, [areas, myAreas, mapReady, styleEpoch, overlayEpoch]);
+  }, [areas, myAreas, mapReady, styleEpoch]);
 
   // Contributors open on their own patch of work.
   const fittedAreas = useRef(false);
@@ -876,7 +553,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapReady) return;
+    if (!map || !mapReady || !map.isStyleLoaded()) return;
 
     const snapping = { toCoordinate: true, toLine: true } as const;
     const coordinateFlags = {
@@ -886,57 +563,35 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       snappable: true,
     };
 
-    let draw: TerraDraw | null = null;
-
-    // The adapter needs a fully parsed style. "idle" can fire while MapLibre is
-    // still finishing the style, so initialisation is retried on later style
-    // events instead of being abandoned after one attempt.
-    const init = () => {
-      if (draw || !styleParsed(map)) return;
-
-      const instance = new TerraDraw({
-        adapter: new TerraDrawMapLibreGLAdapter({ map }),
-        modes: [
-          new TerraDrawPointMode(),
-          new TerraDrawLineStringMode({ snapping }),
-          new TerraDrawPolygonMode({ snapping }),
-          new TerraDrawRectangleMode(),
-          new TerraDrawSelectMode({
-            flags: {
-              point: { feature: { draggable: true } },
-              linestring: { feature: { draggable: true, coordinates: coordinateFlags } },
-              polygon: { feature: { draggable: true, coordinates: coordinateFlags } },
-              rectangle: { feature: { draggable: true, coordinates: coordinateFlags } },
-            },
-          }),
-        ],
-      });
-      try {
-        instance.start();
-        instance.setMode("static");
-      } catch (error) {
-        console.error("Could not start the drawing tools", error);
-        return;
-      }
-      draw = instance;
-      drawRef.current = instance;
-      map.off("idle", init);
-      map.off("styledata", init);
-      // Lets the mode/listener effects below attach to the live instance.
-      setDrawReady((count) => count + 1);
-    };
-
-    init();
-    if (!draw) {
-      map.on("idle", init);
-      map.on("styledata", init);
+    const draw = new TerraDraw({
+      adapter: new TerraDrawMapLibreGLAdapter({ map }),
+      modes: [
+        new TerraDrawPointMode(),
+        new TerraDrawLineStringMode({ snapping }),
+        new TerraDrawPolygonMode({ snapping }),
+        new TerraDrawRectangleMode(),
+        new TerraDrawSelectMode({
+          flags: {
+            point: { feature: { draggable: true } },
+            linestring: { feature: { draggable: true, coordinates: coordinateFlags } },
+            polygon: { feature: { draggable: true, coordinates: coordinateFlags } },
+            rectangle: { feature: { draggable: true, coordinates: coordinateFlags } },
+          },
+        }),
+      ],
+    });
+    try {
+      draw.start();
+      draw.setMode("static");
+      drawRef.current = draw;
+    } catch (error) {
+      console.error("Could not start the drawing tools", error);
+      return;
     }
 
     return () => {
-      map.off("idle", init);
-      map.off("styledata", init);
       try {
-        draw?.stop();
+        draw.stop();
       } catch {
         /* the style may already be gone */
       }
@@ -948,38 +603,26 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   useEffect(() => {
     const draw = drawRef.current;
     if (!draw) return;
-    try {
-      draw.setMode(tool === "pan" ? "static" : tool);
-    } catch (error) {
-      console.error("Could not switch drawing tool", error);
-    }
-  }, [tool, mapReady, styleEpoch, drawReady]);
+    draw.setMode(tool === "pan" ? "static" : tool);
+  }, [tool, mapReady, styleEpoch]);
 
   const createMutation = useMutation({
     mutationFn: async (geometry: Geometry) => {
       if (!user) throw new Error("Sign in to digitize features");
       const area = areaForGeometry(geometry, areas);
       const category = categories.find((item) => item.id === drawCategoryId) ?? null;
-      if (category && !category.is_active) {
-        throw new Error(`${category.name} is no longer in use, so nothing was saved.`);
-      }
-      // Default values configured on the layer's fields are filled in up front.
-      const attributes = defaultAttributes(category);
 
-      // Live checks: geometry type, size, coordinates, project and work-area
-      // boundaries, self-intersection, duplicates, overlap and attribute rules.
+      // Live checks: work area, self-intersection, duplicates, overlap rules.
       const issues = validateFeature({
         geometry,
         category,
-        attributes,
+        attributes: {},
         areas,
         assignedAreaIds: access.assignedAreaIds,
         restrictedToAssignments: access.restrictedToAssignments,
         containingArea: area,
         siblings: features,
-        projectBoundary,
       });
-
       const blocking = blockingIssues(issues);
       if (blocking.length > 0) throw new Error(blocking.map((issue) => issue.message).join(" "));
       for (const issue of issues) {
@@ -992,12 +635,17 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
         categoryId: category?.id ?? null,
         datasetId: dataset?.id ?? null,
         geometry,
-        attributes,
+        attributes: {},
         areaSqm: geometryArea(geometry),
         lengthM: geometryLength(geometry),
         createdBy: user.id,
       });
-      await logActivity(projectId, "created", `Digitized a ${category?.name ?? "feature"}`, row.id);
+      await logActivity(
+        projectId,
+        "created",
+        `Digitized a ${category?.name ?? "feature"}`,
+        row.id,
+      );
       return row;
     },
     onSuccess: (row) => {
@@ -1006,7 +654,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       setSaveStatus("saved");
       pushUndo({
         undo: async () => {
-          await removeFeature(row.id, "Undone straight after digitizing");
+          await deleteFeature(row.id);
           invalidateFeatures();
         },
         redo: async () => {
@@ -1052,7 +700,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     return () => {
       draw.off("finish", onFinish);
     };
-  }, [createMutation, mapReady, drawReady]);
+  }, [createMutation, mapReady]);
 
   // Load the selected feature into terra-draw for vertex editing
   useEffect(() => {
@@ -1078,7 +726,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     } catch {
       editingRef.current = null;
     }
-  }, [selectedId, canEditSelected, tool, selected, styleEpoch, drawReady]);
+  }, [selectedId, canEditSelected, tool, selected, styleEpoch]);
 
   // Geometry edits → autosave
   useEffect(() => {
@@ -1102,7 +750,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     return () => {
       draw.off("change", onChange);
     };
-  }, [queuePatch, mapReady, drawReady]);
+  }, [queuePatch, mapReady]);
 
   /* ---------------- actions ---------------- */
 
@@ -1111,12 +759,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
       toast.error("Sign in to start digitizing.");
       return;
     }
-    if (next !== "pan" && next !== "select" && drawBlockedReason) {
-      toast.error(drawBlockedReason);
-      return;
-    }
     setTool(next);
-
     if (next !== "pan" && next !== "select") {
       const wanted = GEOM_FOR_TOOL[next];
       const current = categories.find((item) => item.id === drawCategoryId);
@@ -1150,30 +793,36 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
     });
   };
 
-  // Work is never erased outright: it is marked as removed with a reason, so the
-  // organisation keeps a record and a manager can bring it back.
-  const confirmRemove = async (reason: string) => {
+  const removeSelected = async () => {
     if (!selected || !canEditSelected || !user) return;
     const row = selected;
     try {
-      await removeFeature(row.id, reason);
-      setRemoveOpen(false);
-      setRemoveReason("");
+      await deleteFeature(row.id);
+      await logActivity(projectId, "deleted", "Removed a feature", undefined);
       setSelectedId(null);
       invalidateFeatures();
-      toast.success("Removed and recorded. A manager can restore it.");
       pushUndo({
         undo: async () => {
-          await restoreFeature(row.id);
+          await createFeature({
+            projectId,
+            workAreaId: row.work_area_id,
+            categoryId: row.category_id,
+            datasetId: row.dataset_id,
+            geometry: featureGeometry(row),
+            attributes: featureAttributes(row),
+            areaSqm: Number(row.area_sqm),
+            lengthM: Number(row.length_m),
+            createdBy: user.id,
+          });
           invalidateFeatures();
         },
         redo: async () => {
-          await removeFeature(row.id, reason);
+          await deleteFeature(row.id);
           invalidateFeatures();
         },
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not remove this feature");
+      toast.error(error instanceof Error ? error.message : "Could not delete this feature");
     }
   };
 
@@ -1230,10 +879,8 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
   };
 
   const drawCategories = useMemo(() => {
-    // Retired layers stay visible on old features but cannot be drawn into.
-    const active = categories.filter((item) => item.is_active);
-    if (tool === "pan" || tool === "select") return active;
-    return active.filter((item) => item.geometry_type === GEOM_FOR_TOOL[tool]);
+    if (tool === "pan" || tool === "select") return categories;
+    return categories.filter((item) => item.geometry_type === GEOM_FOR_TOOL[tool]);
   }, [categories, tool]);
 
   useEffect(() => {
@@ -1258,14 +905,15 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
                 onOpacity={setOpacity}
                 imageryVisible={imageryVisible}
                 onImageryVisible={setImageryVisible}
-                loading={imageryLoading}
-                onZoomToImagery={zoomToImagery}
               />
               <div className="border-t border-border px-3 py-3">
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                   Digitizing as
                 </Label>
-                <Select value={drawCategoryId ?? ""} onValueChange={setDrawCategoryId}>
+                <Select
+                  value={drawCategoryId ?? ""}
+                  onValueChange={setDrawCategoryId}
+                >
                   <SelectTrigger className="mt-1.5 h-8 text-xs">
                     <SelectValue placeholder="Pick a category" />
                   </SelectTrigger>
@@ -1306,9 +954,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
         )}
 
         <div className="relative flex min-w-0 flex-1 flex-col">
-          {/* MapLibre's stylesheet forces position:relative on its container, which
-              cancels absolute positioning and collapses the height — size it directly. */}
-          <div ref={containerRef} className="h-full w-full" />
+          <div ref={containerRef} className="absolute inset-0" />
 
           <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-2">
             <Button
@@ -1332,15 +978,9 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
               canRedo={redoStack.length > 0}
               onUndo={() => void runUndo()}
               onRedo={() => void runRedo()}
-              onDelete={() => setRemoveOpen(true)}
+              onDelete={() => void removeSelected()}
               canDelete={canEditSelected}
-              drawBlockedReason={drawBlockedReason}
             />
-            {drawBlockedReason && (
-              <p className="pointer-events-auto max-w-64 rounded-md border border-border bg-panel/95 p-2 text-xs text-muted-foreground shadow-lg backdrop-blur">
-                {drawBlockedReason}
-              </p>
-            )}
           </div>
 
           {selected && (
@@ -1353,7 +993,7 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
                 canReview={access.canReview}
                 workAreas={areas}
                 onPatch={patchSelected}
-                onDelete={() => setRemoveOpen(true)}
+                onDelete={() => void removeSelected()}
                 onClose={() => setSelectedId(null)}
                 onZoom={zoomToSelected}
               />
@@ -1361,38 +1001,6 @@ export default function MapWorkspace({ projectId }: { projectId: string }) {
           )}
         </div>
       </div>
-
-      <Dialog open={removeOpen} onOpenChange={setRemoveOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Remove this feature?</DialogTitle>
-            <DialogDescription>
-              It comes off the map but stays on the record, so a manager can restore it. Tell us why
-              it is being removed.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            className="min-h-20 text-sm"
-            maxLength={300}
-            placeholder="Reason for removing this feature"
-            value={removeReason}
-            onChange={(event) => setRemoveReason(event.target.value)}
-          />
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setRemoveOpen(false)}>
-              Keep it
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={removeReason.trim().length < 3}
-              onClick={() => void confirmRemove(removeReason.trim())}
-            >
-              Remove
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <StatusBar
         cursor={cursor}

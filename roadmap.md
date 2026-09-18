@@ -1,7 +1,6 @@
-# DDigitize / GIS production platform — roadmap
+# DroneTrace / GIS production platform — roadmap
 
 ## Done
-
 - Cloud backend, email + Google sign-in, first account becomes admin
 - Schema: profiles, roles, projects (client ref, CRS, start/due dates, boundary,
   statuses Draft/Setup/Active/Review/On hold/Completed/Archived), project_members,
@@ -24,7 +23,6 @@
 - Admin-only export: Shapefile (zip), GeoJSON, KML, CSV
 
 ## Next
-
 1. Project setup wizard (9 guided steps) with save-as-draft
 2. Project workspace Overview tab + project fields form (client, CRS, dates, boundary)
 3. Conditional attribute visibility (show field only when another field has a value)
@@ -38,6 +36,5 @@
 11. Notifications in the top bar
 
 ## Blocked
-
 - No account exists yet, so signed-in flows (digitising, QA, assignments) are
   untested end to end. Sign up in the app to create the first admin account.

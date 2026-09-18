@@ -12,12 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as BootstrapRouteImport } from './routes/bootstrap'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ManagementRouteImport } from './routes/management'
 import { Route as ExportRouteImport } from './routes/export'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as UsersRouteImport } from './routes/users'
 import { Route as PProjectIdRouteImport } from './routes/p.$projectId'
 import { Route as PProjectIdIndexRouteImport } from './routes/p.$projectId.index'
 import { Route as PProjectIdProgressRouteImport } from './routes/p.$projectId.progress'
@@ -40,34 +37,19 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BootstrapRoute = BootstrapRouteImport.update({
-  id: '/bootstrap',
-  path: '/bootstrap',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ManagementRoute = ManagementRouteImport.update({
+  id: '/management',
+  path: '/management',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExportRoute = ExportRouteImport.update({
   id: '/export',
   path: '/export',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const UsersRoute = UsersRouteImport.update({
-  id: '/users',
-  path: '/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PProjectIdRoute = PProjectIdRouteImport.update({
@@ -105,12 +87,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
   '/auth': typeof AuthRoute
-  '/bootstrap': typeof BootstrapRoute
   '/dashboard': typeof DashboardRoute
+  '/management': typeof ManagementRoute
   '/export': typeof ExportRoute
-  '/reset-password': typeof ResetPasswordRoute
-  '/settings': typeof SettingsRoute
-  '/users': typeof UsersRoute
   '/p/$projectId': typeof PProjectIdRouteWithChildren
   '/p/$projectId/progress': typeof PProjectIdProgressRoute
   '/p/$projectId/review': typeof PProjectIdReviewRoute
@@ -122,12 +101,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
   '/auth': typeof AuthRoute
-  '/bootstrap': typeof BootstrapRoute
   '/dashboard': typeof DashboardRoute
+  '/management': typeof ManagementRoute
   '/export': typeof ExportRoute
-  '/reset-password': typeof ResetPasswordRoute
-  '/settings': typeof SettingsRoute
-  '/users': typeof UsersRoute
   '/p/$projectId/progress': typeof PProjectIdProgressRoute
   '/p/$projectId/review': typeof PProjectIdReviewRoute
   '/p/$projectId/setup': typeof PProjectIdSetupRoute
@@ -139,12 +115,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
   '/auth': typeof AuthRoute
-  '/bootstrap': typeof BootstrapRoute
   '/dashboard': typeof DashboardRoute
+  '/management': typeof ManagementRoute
   '/export': typeof ExportRoute
-  '/reset-password': typeof ResetPasswordRoute
-  '/settings': typeof SettingsRoute
-  '/users': typeof UsersRoute
   '/p/$projectId': typeof PProjectIdRouteWithChildren
   '/p/$projectId/progress': typeof PProjectIdProgressRoute
   '/p/$projectId/review': typeof PProjectIdReviewRoute
@@ -158,12 +131,9 @@ export interface FileRouteTypes {
     | '/'
     | '/audit'
     | '/auth'
-    | '/bootstrap'
     | '/dashboard'
+    | '/management'
     | '/export'
-    | '/reset-password'
-    | '/settings'
-    | '/users'
     | '/p/$projectId'
     | '/p/$projectId/progress'
     | '/p/$projectId/review'
@@ -175,12 +145,9 @@ export interface FileRouteTypes {
     | '/'
     | '/audit'
     | '/auth'
-    | '/bootstrap'
     | '/dashboard'
+    | '/management'
     | '/export'
-    | '/reset-password'
-    | '/settings'
-    | '/users'
     | '/p/$projectId/progress'
     | '/p/$projectId/review'
     | '/p/$projectId/setup'
@@ -191,12 +158,10 @@ export interface FileRouteTypes {
     | '/'
     | '/audit'
     | '/auth'
-    | '/bootstrap'
     | '/dashboard'
+    | '/management'
     | '/export'
-    | '/reset-password'
-    | '/settings'
-    | '/users'
+    | '/management'
     | '/p/$projectId'
     | '/p/$projectId/progress'
     | '/p/$projectId/review'
@@ -209,12 +174,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditRoute: typeof AuditRoute
   AuthRoute: typeof AuthRoute
-  BootstrapRoute: typeof BootstrapRoute
   DashboardRoute: typeof DashboardRoute
+  ManagementRoute: typeof ManagementRoute
   ExportRoute: typeof ExportRoute
-  ResetPasswordRoute: typeof ResetPasswordRoute
-  SettingsRoute: typeof SettingsRoute
-  UsersRoute: typeof UsersRoute
   PProjectIdRoute: typeof PProjectIdRouteWithChildren
 }
 
@@ -241,13 +203,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/bootstrap': {
-      id: '/bootstrap'
-      path: '/bootstrap'
-      fullPath: '/bootstrap'
-      preLoaderRoute: typeof BootstrapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -255,32 +210,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/management': {
+      id: '/management'
+      path: '/management'
+      fullPath: '/management'
+      preLoaderRoute: typeof ManagementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/export': {
       id: '/export'
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof ExportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/users': {
-      id: '/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof UsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/p/$projectId': {
@@ -352,12 +293,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
   AuthRoute: AuthRoute,
-  BootstrapRoute: BootstrapRoute,
   DashboardRoute: DashboardRoute,
+  ManagementRoute: ManagementRoute,
   ExportRoute: ExportRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
-  SettingsRoute: SettingsRoute,
-  UsersRoute: UsersRoute,
   PProjectIdRoute: PProjectIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport

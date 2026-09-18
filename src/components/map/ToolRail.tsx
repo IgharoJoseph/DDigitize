@@ -18,30 +18,20 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 
 type Props = {
-  tool: Tool;
-  onTool: (tool: Tool) => void;
-  disabled: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
-  onDelete: () => void;
-  canDelete: boolean;
-  /**
-   * Why new shapes cannot be drawn right now (no work area assigned, for
-   * example). Panning, selecting and reviewing stay available.
-   */
-  drawBlockedReason?: string | null;
+  tool: Tool
+  onTool: (tool: Tool) => void
+  disabled: boolean
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
+  onDelete: () => void
+  canDelete: boolean
 };
 
 const TOOLS: { id: Tool; label: string; icon: LucideIcon; hint: string }[] = [
   { id: "pan", label: "Pan", icon: Hand, hint: "Pan and inspect imagery" },
-  {
-    id: "select",
-    label: "Select / edit",
-    icon: MousePointer2,
-    hint: "Select, drag vertices, delete vertices",
-  },
+  { id: "select", label: "Select / edit", icon: MousePointer2, hint: "Select, drag vertices, delete vertices" },
   { id: "polygon", label: "Polygon", icon: Pentagon, hint: "Trace buildings and parcels" },
   { id: "rectangle", label: "Rectangle", icon: Square, hint: "Quick rectangular footprints" },
   { id: "linestring", label: "Line", icon: Slash, hint: "Roads, waterways, powerlines" },
@@ -58,37 +48,30 @@ export function ToolRail({
   onRedo,
   onDelete,
   canDelete,
-  drawBlockedReason = null,
 }: Props) {
   return (
     <div className="pointer-events-auto flex flex-col gap-1 rounded-md border border-border bg-panel/95 p-1 shadow-lg backdrop-blur">
-      {TOOLS.map(({ id, label, icon: Icon, hint }) => {
-        const isDraw = id !== "pan" && id !== "select";
-        const blocked = isDraw && Boolean(drawBlockedReason);
-        return (
-          <Tooltip key={id}>
-            <TooltipTrigger asChild>
-              <Button
-                variant={tool === id ? "default" : "ghost"}
-                size="icon"
-                className={cn("size-9", tool === id && "shadow-inner")}
-                disabled={(disabled && id !== "pan") || blocked}
-                onClick={() => onTool(id)}
-                aria-label={label}
-                aria-pressed={tool === id}
-              >
-                <Icon className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p className="font-medium">{label}</p>
-              <p className="max-w-56 text-xs text-muted-foreground">
-                {blocked ? drawBlockedReason : hint}
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        );
-      })}
+      {TOOLS.map(({ id, label, icon: Icon, hint }) => (
+        <Tooltip key={id}>
+          <TooltipTrigger asChild>
+            <Button
+              variant={tool === id ? "default" : "ghost"}
+              size="icon"
+              className={cn("size-9", tool === id && "shadow-inner")}
+              disabled={disabled && id !== "pan"}
+              onClick={() => onTool(id)}
+              aria-label={label}
+              aria-pressed={tool === id}
+            >
+              <Icon className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p className="font-medium">{label}</p>
+            <p className="text-xs text-muted-foreground">{hint}</p>
+          </TooltipContent>
+        </Tooltip>
+      ))}
 
       <Separator className="my-1" />
 

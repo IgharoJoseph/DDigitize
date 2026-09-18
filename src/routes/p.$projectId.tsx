@@ -2,7 +2,6 @@ import { Link, Outlet, createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
-import { roleLabel } from "@/lib/projects";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useProjectAccess } from "@/hooks/useProjectRole";
@@ -11,13 +10,13 @@ import { fetchProject } from "@/lib/projects";
 export const Route = createFileRoute("/p/$projectId")({
   head: () => ({
     meta: [
-      { title: "Project workspace — DDigitize" },
+      { title: "Project workspace — DroneTrace" },
       {
         name: "description",
         content:
           "Digitize drone imagery inside your assigned work area, with the feature layers and attributes your manager defined.",
       },
-      { property: "og:title", content: "DDigitize project workspace" },
+      { property: "og:title", content: "DroneTrace project workspace" },
       {
         property: "og:description",
         content: "Role-based drone imagery digitizing with review and progress tracking.",
@@ -72,7 +71,7 @@ function ProjectLayout() {
         <span className="text-xs text-muted-foreground">/</span>
         <span className="truncate text-xs font-medium">{project?.name ?? "Project"}</span>
         <Badge variant="outline" className="text-[9px] uppercase">
-          {roleLabel(access.role)}
+          {access.role === "admin" ? "app admin" : access.role}
         </Badge>
         <nav className="ml-auto flex items-center gap-1">
           <NavLink to="/p/$projectId" projectId={projectId} label="Map" exact />
@@ -103,10 +102,10 @@ function NavLink({
     | "/p/$projectId/tasks"
     | "/p/$projectId/progress"
     | "/p/$projectId/review"
-    | "/p/$projectId/setup";
-  projectId: string;
-  label: string;
-  exact?: boolean;
+    | "/p/$projectId/setup"
+  projectId: string
+  label: string
+  exact?: boolean
 }) {
   return (
     <Link
@@ -121,7 +120,15 @@ function NavLink({
   );
 }
 
-function Gate({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
+function Gate({
+  title,
+  body,
+  action,
+}: {
+  title: string
+  body: string
+  action?: React.ReactNode
+}) {
   return (
     <div className="flex flex-1 items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">

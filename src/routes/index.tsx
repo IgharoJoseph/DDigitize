@@ -11,26 +11,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useRoleSimulation } from "@/hooks/useRoleSimulation";
 import {
   createProject,
   fetchMyMemberships,
   fetchProjects,
   pk,
-  roleLabel,
-  type EffectiveRole,
   type Project,
 } from "@/lib/projects";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Projects — DDigitize" },
+      { title: "Projects — DroneTrace" },
       {
         name: "description",
         content:
           "Pick a drone mapping project to open. Managers set up feature layers, imagery and work areas; contributors digitize the area assigned to them.",
       },
-      { property: "og:title", content: "DDigitize projects" },
+      { property: "og:title", content: "DroneTrace projects" },
       {
         property: "og:description",
         content: "Collaborative drone imagery digitizing, organised per project and per role.",
@@ -41,7 +40,8 @@ export const Route = createFileRoute("/")({
 });
 
 function ProjectsPage() {
-  const { user, isAdmin, isManager, loading } = useAuth();
+  const { user, isAdmin, loading } = useAuth();
+  const { activeRole, isSimulating } = useRoleSimulation();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ name: "", description: "" });
 
@@ -84,7 +84,7 @@ function ProjectsPage() {
     return (
       <div className="flex flex-1 items-center justify-center bg-background px-4">
         <div className="max-w-md text-center">
-          <h1 className="text-xl font-semibold tracking-tight">DDigitize</h1>
+          <h1 className="text-xl font-semibold tracking-tight">DroneTrace</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Sign in to see the mapping projects you have been added to.
           </p>
@@ -96,13 +96,19 @@ function ProjectsPage() {
     );
   }
 
-  const roleFor = (project: Project): EffectiveRole | null =>
-    isAdmin
-      ? "system_admin"
-      : project.owner_id === user?.id
-        ? "owner"
-        : (memberships.find((row) => row.project_id === project.id)?.role ??
-          (isManager ? "org_manager" : null));
+  const roleFor = (project: Project) => {
+    if (!isSimulating || !isAdmin) {
+      return isAdmin ? "admin" : (memberships.find((row) => row.project_id === project.id)?.role ?? null);
+    }
+    if (activeRole === "project_owner") return project.created_by === user?.id ? "project_owner" : null;
+    return memberships.find((row) => row.project_id === project.id)?.role === activeRole ? activeRole : null;
+  };
+
+  const visibleProjects = projects.filter((project) => {
+    if (!isAdmin || !isSimulating) return true;
+    if (activeRole === "project_owner") return project.created_by === user?.id;
+    return memberships.some((row) => row.project_id === project.id && row.role === activeRole);
+  });
 
   return (
     <div className="flex-1 overflow-y-auto bg-background">
@@ -114,7 +120,7 @@ function ProjectsPage() {
           </p>
         </div>
 
-        {(isAdmin || isManager) && (
+        {isAdmin && !isSimulating && (
           <Card className="bg-panel">
             <CardHeader>
               <CardTitle className="text-base">New project</CardTitle>
@@ -155,7 +161,7 @@ function ProjectsPage() {
         )}
 
         <div className="space-y-3">
-          {projects.map((project) => {
+          {visibleProjects.map((project) => {
             const role = roleFor(project);
             return (
               <Card key={project.id} className="bg-panel">
@@ -170,7 +176,11 @@ function ProjectsPage() {
                     <Badge variant="outline" className="text-[9px] uppercase">
                       {project.status}
                     </Badge>
-                    {role && <Badge className="text-[9px] uppercase">{roleLabel(role)}</Badge>}
+                    {role && (
+                      <Badge className="text-[9px] uppercase">
+                        {role === "admin" ? "app admin" : role}
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
@@ -184,7 +194,7 @@ function ProjectsPage() {
                       Progress
                     </Link>
                   </Button>
-                  {(role === "system_admin" || role === "owner" || role === "manager") && (
+                  {(role === "admin" || role === "manager") && (
                     <Button asChild size="sm" variant="outline">
                       <Link to="/p/$projectId/setup" params={{ projectId: project.id }}>
                         Set up
@@ -195,7 +205,7 @@ function ProjectsPage() {
               </Card>
             );
           })}
-          {!projectsQuery.isLoading && projects.length === 0 && (
+          {!projectsQuery.isLoading && visibleProjects.length === 0 && (
             <p className="text-sm text-muted-foreground">
               You are not on any project yet. Ask an administrator to add you.
             </p>

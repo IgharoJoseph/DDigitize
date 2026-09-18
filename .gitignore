@@ -35,7 +35,8 @@ dist-ssr
 .lovable
 .workspace
 
-# Env files — keep secrets out of git
+# Environment
 .env
 .env.*
 !.env.example
+.env.local

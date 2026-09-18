@@ -39,46 +39,21 @@ function overlapRatio(geometry: Geometry, other: Geometry): number {
   }
 }
 
-const GEOMETRY_KINDS: Record<string, string[]> = {
-  polygon: ["Polygon", "MultiPolygon"],
-  line: ["LineString", "MultiLineString"],
-  point: ["Point", "MultiPoint"],
-};
-
-/** Every coordinate pair in a geometry, whatever its nesting depth. */
-function coordinatePairs(geometry: Geometry): number[][] {
-  const out: number[][] = [];
-  const walk = (node: unknown) => {
-    if (!Array.isArray(node)) return;
-    if (typeof node[0] === "number" && typeof node[1] === "number") {
-      out.push(node as number[]);
-      return;
-    }
-    for (const child of node) walk(child);
-  };
-  if ("coordinates" in geometry) walk((geometry as { coordinates: unknown }).coordinates);
-  return out;
-}
-
 /**
  * Everything checked while digitising: geometry validity, work-area
  * containment, self-intersection, duplicate/overlap rules and required
  * attributes. Errors block saving; warnings only need acknowledging.
- * The same rules are enforced again by the database, so a bypassed browser
- * check cannot store bad data.
  */
 export function validateFeature(input: {
-  geometry: Geometry;
-  category: (Category & { fields: CategoryField[] }) | null;
-  attributes?: Record<string, unknown>;
-  areas: WorkArea[];
-  assignedAreaIds: string[];
-  restrictedToAssignments: boolean;
-  containingArea: WorkArea | null;
-  siblings: FeatureRow[];
-  featureId?: string;
-  /** Project boundary, when the project has one. */
-  projectBoundary?: Geometry | null;
+  geometry: Geometry
+  category: (Category & { fields: CategoryField[] }) | null
+  attributes?: Record<string, unknown>
+  areas: WorkArea[]
+  assignedAreaIds: string[]
+  restrictedToAssignments: boolean
+  containingArea: WorkArea | null
+  siblings: FeatureRow[]
+  featureId?: string
 }): Issue[] {
   const issues: Issue[] = [];
   const { geometry, category } = input;
@@ -88,83 +63,12 @@ export function validateFeature(input: {
     return issues;
   }
 
-  const pairs = coordinatePairs(geometry);
-  if (pairs.length === 0) {
-    issues.push({ severity: "error", message: "The shape is empty." });
-    return issues;
-  }
-  // CRS: storage is always EPSG:4326, so anything outside the WGS84 range is
-  // a projected coordinate that must not be saved.
-  const outOfRange = pairs.some(
-    (pair) =>
-      !Number.isFinite(pair[0]) ||
-      !Number.isFinite(pair[1]) ||
-      Math.abs(pair[0] as number) > 180 ||
-      Math.abs(pair[1] as number) > 90,
-  );
-  if (outOfRange) {
-    issues.push({
-      severity: "error",
-      message:
-        "The coordinates are not longitude/latitude values (WGS84), so the shape was not saved.",
-    });
-    return issues;
-  }
-
-  if (category) {
-    const allowed = GEOMETRY_KINDS[category.geometry_type] ?? [];
-    if (!allowed.includes(geometry.type)) {
-      issues.push({
-        severity: "error",
-        message: `${category.name} holds ${category.geometry_type} shapes, so this shape cannot be saved to it.`,
-      });
-      return issues;
-    }
-    const maxVertices = Math.max(category.max_vertices ?? 10000, 3);
-    if (pairs.length > maxVertices) {
-      issues.push({
-        severity: "error",
-        message: `The shape has ${pairs.length} points; this layer allows ${maxVertices}. Simplify it before saving.`,
-      });
-    }
-    const kb = Math.round(JSON.stringify(geometry).length / 1024);
-    const maxKb = Math.max(category.max_payload_kb ?? 512, 8);
-    if (kb > maxKb) {
-      issues.push({
-        severity: "error",
-        message: `The shape is too large to store (${kb} KB of ${maxKb} KB allowed).`,
-      });
-    }
-  }
-
-  // Project boundary.
-  if (input.projectBoundary && category?.require_within_project !== false) {
-    try {
-      const inside = booleanIntersects(asFeature(geometry), asFeature(input.projectBoundary));
-      if (!inside) {
-        issues.push({
-          severity: "error",
-          message: "The shape falls outside the project boundary.",
-        });
-      }
-    } catch {
-      /* boundaries turf cannot compare are left to the database check */
-    }
-  }
-
   // Work-area containment.
   if (input.restrictedToAssignments) {
-    const inside = input.containingArea && input.assignedAreaIds.includes(input.containingArea.id);
+    const inside =
+      input.containingArea && input.assignedAreaIds.includes(input.containingArea.id);
     if (!inside) {
-      // Saying "outside your area" is confusing when no area exists or none is
-      // yours yet, so the reason is spelled out instead.
-      const message =
-        input.areas.length === 0
-          ? "This project has no work areas yet. A manager needs to create one and assign it to you before you can digitize."
-          : input.assignedAreaIds.length === 0
-            ? "No work area is assigned to you yet. Ask a manager or supervisor to assign one."
-            : "Outside assigned work area";
-      issues.push({ severity: "error", message });
+      issues.push({ severity: "error", message: "Outside assigned work area" });
     }
   } else if (category?.require_within_area && input.areas.length > 0 && !input.containingArea) {
     issues.push({
@@ -174,10 +78,7 @@ export function validateFeature(input: {
   }
 
   // Self-intersection on lines and polygons.
-  if (
-    category?.forbid_self_intersection !== false &&
-    (geometry.type === "LineString" || geometry.type === "Polygon")
-  ) {
+  if (geometry.type === "LineString" || geometry.type === "Polygon") {
     try {
       if (kinks(asFeature(geometry) as never).features.length > 0) {
         issues.push({ severity: "error", message: "The shape crosses itself." });
@@ -210,7 +111,7 @@ export function validateFeature(input: {
     }
   }
 
-  // Required attributes and attribute domains.
+  // Required attributes.
   const attributes = input.attributes ?? {};
   const missing = (category?.fields ?? []).filter((field) => {
     if (!field.required) return false;
@@ -222,59 +123,6 @@ export function validateFeature(input: {
       severity: "warning",
       message: `Fill in: ${missing.map((field) => field.label).join(", ")}`,
     });
-  }
-  for (const field of category?.fields ?? []) {
-    const raw = attributes[field.key];
-    if (raw === undefined || raw === null || raw === "") continue;
-    const text = String(raw);
-    if (
-      field.field_type === "select" &&
-      field.options.length > 0 &&
-      !field.options.includes(text)
-    ) {
-      issues.push({
-        severity: "error",
-        message: `${field.label} must be one of: ${field.options.join(", ")}`,
-      });
-      continue;
-    }
-    if (field.field_type === "number") {
-      const value = Number(text);
-      if (!Number.isFinite(value)) {
-        issues.push({ severity: "error", message: `${field.label} must be a number.` });
-        continue;
-      }
-      if (field.min_value !== null && value < Number(field.min_value)) {
-        issues.push({
-          severity: "error",
-          message: `${field.label} must be at least ${field.min_value}.`,
-        });
-      }
-      if (field.max_value !== null && value > Number(field.max_value)) {
-        issues.push({
-          severity: "error",
-          message: `${field.label} must be at most ${field.max_value}.`,
-        });
-      }
-    }
-    if (field.max_length !== null && text.length > field.max_length) {
-      issues.push({
-        severity: "error",
-        message: `${field.label} may hold at most ${field.max_length} characters.`,
-      });
-    }
-    if (field.pattern) {
-      try {
-        if (!new RegExp(field.pattern).test(text)) {
-          issues.push({
-            severity: "error",
-            message: `${field.label} is not in the expected format.`,
-          });
-        }
-      } catch {
-        /* an unusable pattern is left to the database check */
-      }
-    }
   }
 
   return issues;

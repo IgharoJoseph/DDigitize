@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -16,21 +15,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
-import { REVIEW_STATUSES } from "@/lib/data";
+import { useRoleSimulation } from "@/hooks/useRoleSimulation";
+import {
+  REVIEW_STATUSES,
+  fetchCategories,
+  fetchFeatures,
+  fetchProfiles,
+  qk,
+} from "@/lib/data";
 import { downloadShapefile, downloadText, toCsv, toGeoJson, toKml } from "@/lib/exporters";
-import { buildProjectExport } from "@/lib/exports.functions";
 import { fetchProjects, pk } from "@/lib/projects";
 
 export const Route = createFileRoute("/export")({
   head: () => ({
     meta: [
-      { title: "Export data — DDigitize" },
+      { title: "Export data — DroneTrace" },
       {
         name: "description",
         content:
           "Download verified digitizing results as Shapefile, GeoJSON, KML or CSV. Administrators only.",
       },
-      { property: "og:title", content: "DDigitize data export" },
+      { property: "og:title", content: "DroneTrace data export" },
       {
         property: "og:description",
         content: "Admin-only download of digitized features in WGS84.",
@@ -41,26 +46,37 @@ export const Route = createFileRoute("/export")({
 });
 
 function ExportPage() {
-  const { user, isAdmin, isManager, loading } = useAuth();
-  // Platform administrators, organisation managers and project owners may
-  // export. The server checks the permission again per project.
-  const mayReachExports = isAdmin || isManager;
+  const { user, isAdmin, loading } = useAuth();
+  const { isSimulating } = useRoleSimulation();
   const [projectId, setProjectId] = useState<string>("");
   const [status, setStatus] = useState<string>("all");
-  const [busy, setBusy] = useState(false);
-  const requestExport = useServerFn(buildProjectExport);
 
   const projectsQuery = useQuery({
     queryKey: pk.projects,
     queryFn: fetchProjects,
-    enabled: Boolean(user) && mayReachExports,
+    enabled: Boolean(user) && isAdmin && !isSimulating,
+  });
+  const featuresQuery = useQuery({
+    queryKey: qk.features(projectId),
+    queryFn: () => fetchFeatures(projectId),
+    enabled: Boolean(projectId) && isAdmin && !isSimulating,
+  });
+  const categoriesQuery = useQuery({
+    queryKey: qk.categories(projectId),
+    queryFn: () => fetchCategories(projectId),
+    enabled: Boolean(projectId) && isAdmin && !isSimulating,
+  });
+  const profilesQuery = useQuery({
+    queryKey: qk.profiles,
+    queryFn: fetchProfiles,
+    enabled: isAdmin && !isSimulating,
   });
 
-  if (!loading && !mayReachExports) {
+  if (!loading && (!isAdmin || isSimulating)) {
     return (
       <div className="flex flex-1 items-center justify-center bg-background px-4">
         <p className="text-sm text-muted-foreground">
-          You do not have permission to download digitized data.
+          Only administrators can download digitized data.
         </p>
       </div>
     );
@@ -68,21 +84,21 @@ function ExportPage() {
 
   const projects = projectsQuery.data ?? [];
   const project = projects.find((item) => item.id === projectId) ?? null;
-  const slug = (project?.name ?? "ddigitize").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const rows = (featuresQuery.data ?? []).filter(
+    (row) => status === "all" || row.status === status,
+  );
+  const ctx = {
+    categories: categoriesQuery.data ?? [],
+    profiles: profilesQuery.data ?? [],
+  };
+  const slug = (project?.name ?? "dronetrace").toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-  // The payload is assembled on the server, which checks administrator
-  // authority itself and records the download in the audit trail.
   const run = async (format: "shp" | "geojson" | "kml" | "csv") => {
-    if (!projectId) return;
-    setBusy(true);
+    if (rows.length === 0) {
+      toast.error("Nothing to download with these filters");
+      return;
+    }
     try {
-      const payload = await requestExport({ data: { projectId, status } });
-      const rows = payload.features;
-      if (rows.length === 0) {
-        toast.error("Nothing to download with these filters");
-        return;
-      }
-      const ctx = { categories: payload.categories, profiles: payload.profiles };
       if (format === "geojson") {
         downloadText(`${slug}.geojson`, "application/geo+json", toGeoJson(rows, ctx));
       } else if (format === "kml") {
@@ -95,8 +111,6 @@ function ExportPage() {
       toast.success(`${rows.length} features exported`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Export failed");
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -116,7 +130,7 @@ function ExportPage() {
             <CardTitle className="text-base">Choose what to download</CardTitle>
             <CardDescription>
               {projectId
-                ? "Pick a format — the file is prepared on the server and the download is recorded."
+                ? `${rows.length} feature${rows.length === 1 ? "" : "s"} match these filters.`
                 : "Pick a project first."}
             </CardDescription>
           </CardHeader>
@@ -156,28 +170,16 @@ function ExportPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button disabled={!projectId || busy} onClick={() => void run("shp")}>
+              <Button disabled={!projectId} onClick={() => void run("shp")}>
                 <Download className="mr-1.5 size-4" /> Shapefile (.zip)
               </Button>
-              <Button
-                variant="outline"
-                disabled={!projectId || busy}
-                onClick={() => void run("geojson")}
-              >
+              <Button variant="outline" disabled={!projectId} onClick={() => void run("geojson")}>
                 GeoJSON
               </Button>
-              <Button
-                variant="outline"
-                disabled={!projectId || busy}
-                onClick={() => void run("kml")}
-              >
+              <Button variant="outline" disabled={!projectId} onClick={() => void run("kml")}>
                 KML
               </Button>
-              <Button
-                variant="outline"
-                disabled={!projectId || busy}
-                onClick={() => void run("csv")}
-              >
+              <Button variant="outline" disabled={!projectId} onClick={() => void run("csv")}>
                 CSV
               </Button>
             </div>

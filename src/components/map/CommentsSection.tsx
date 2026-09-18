@@ -17,10 +17,10 @@ export function CommentsSection({
   profiles,
   canResolve,
 }: {
-  projectId: string;
-  featureId: string;
-  profiles: Profile[];
-  canResolve: boolean;
+  projectId: string
+  featureId: string
+  profiles: Profile[]
+  canResolve: boolean
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -32,7 +32,8 @@ export function CommentsSection({
     enabled: Boolean(user),
   });
 
-  const invalidate = () => void queryClient.invalidateQueries({ queryKey: qk.comments(featureId) });
+  const invalidate = () =>
+    void queryClient.invalidateQueries({ queryKey: qk.comments(featureId) });
 
   const post = useMutation({
     mutationFn: async () => {
@@ -77,9 +78,7 @@ export function CommentsSection({
         <div
           key={comment.id}
           className={`rounded border p-2 text-[11px] ${
-            comment.resolved
-              ? "border-border text-muted-foreground"
-              : "border-warning/40 bg-warning/5"
+            comment.resolved ? "border-border text-muted-foreground" : "border-warning/40 bg-warning/5"
           }`}
         >
           <div className="flex items-center gap-1.5">

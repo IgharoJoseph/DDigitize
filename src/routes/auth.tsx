@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Radar } from "lucide-react";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -12,18 +11,16 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { isUsernameValid, normalizeUsername } from "@/lib/username";
-import { signInWithUsername } from "@/lib/users.functions";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — DDigitize" },
+      { title: "Sign in — DroneTrace" },
       {
         name: "description",
-        content: "Sign in to DDigitize to digitize drone imagery with your mapping team.",
+        content: "Sign in to DroneTrace to digitize drone imagery with your mapping team.",
       },
-      { property: "og:title", content: "Sign in to DDigitize" },
+      { property: "og:title", content: "Sign in to DroneTrace" },
       {
         property: "og:description",
         content: "Contributor and admin access for collaborative drone imagery digitizing.",
@@ -34,25 +31,18 @@ export const Route = createFileRoute("/auth")({
 });
 
 const schema = z.object({
-  identifier: z
-    .string()
-    .trim()
-    .min(3, { message: "Enter your email address or username" })
-    .max(255),
+  email: z.string().trim().email({ message: "Enter a valid email address" }).max(255),
   password: z.string().min(8, { message: "Use at least 8 characters" }).max(72),
   displayName: z.string().trim().max(60).optional(),
-  username: z.string().trim().max(40).optional(),
 });
 
 function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [identifier, setIdentifier] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
-  const usernameSignIn = useServerFn(signInWithUsername);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -61,7 +51,7 @@ function AuthPage() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const parsed = schema.safeParse({ identifier, password, displayName, username });
+    const parsed = schema.safeParse({ email, password, displayName });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "Check your details");
       return;
@@ -69,77 +59,30 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        if (!parsed.data.identifier.includes("@")) {
-          toast.error("Enter a valid email address to create an account");
-          return;
-        }
-        const chosen = parsed.data.username?.trim() ? normalizeUsername(parsed.data.username) : "";
-        if (chosen && !isUsernameValid(chosen)) {
-          toast.error("A username needs at least 3 letters or numbers");
-          return;
-        }
         const { data, error } = await supabase.auth.signUp({
-          email: parsed.data.identifier.toLowerCase(),
+          email: parsed.data.email,
           password: parsed.data.password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: {
-              display_name: parsed.data.displayName || chosen,
-              ...(chosen ? { username: chosen } : {}),
-            },
+            data: { display_name: parsed.data.displayName || parsed.data.email.split("@")[0] },
           },
         });
         if (error) throw error;
         if (!data.session) {
-          toast.success("Account created — check your email to confirm, then sign in.");
-          setMode("signin");
+          toast.success("Account created — check your inbox to confirm your email.");
           return;
         }
         void navigate({ to: "/" });
-      } else if (parsed.data.identifier.includes("@")) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: parsed.data.identifier.toLowerCase(),
-          password: parsed.data.password,
-        });
-        if (error) throw error;
-        void navigate({ to: "/" });
       } else {
-        const result = await usernameSignIn({
-          data: {
-            username: normalizeUsername(parsed.data.identifier),
-            password: parsed.data.password,
-          },
-        });
-        if (!result.ok) throw new Error(result.message);
-        const { error } = await supabase.auth.setSession({
-          access_token: result.accessToken,
-          refresh_token: result.refreshToken,
+        const { error } = await supabase.auth.signInWithPassword({
+          email: parsed.data.email,
+          password: parsed.data.password,
         });
         if (error) throw error;
         void navigate({ to: "/" });
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not complete that request");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const sendReset = async () => {
-    const email = identifier.trim().toLowerCase();
-    if (!email.includes("@")) {
-      toast.error("Enter the email address on your account, then tap this again");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (error) throw error;
-      toast.success("Check your email for a link to set a new password");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not send the reset email");
     } finally {
       setBusy(false);
     }
@@ -153,21 +96,20 @@ function AuthPage() {
     });
     if (error) {
       setBusy(false);
-      toast.error("Google sign-in failed. Use your username instead.");
+      toast.error("Google sign-in failed. Try email instead.");
     }
   };
 
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-background px-4 py-10">
+    <div className="flex flex-1 items-center justify-center bg-background px-4 py-10">
       <Card className="w-full max-w-sm border-border bg-panel">
         <CardHeader className="space-y-2">
           <div className="flex items-center gap-2">
             <Radar className="size-5 text-primary" />
-            <CardTitle className="text-lg">DDigitize</CardTitle>
+            <CardTitle className="text-lg">DroneTrace</CardTitle>
           </div>
           <CardDescription>
-            Sign in with your email address or username. The first account created becomes the
-            project admin.
+            Sign in to digitize features. The first account created becomes the project admin.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -181,19 +123,6 @@ function AuthPage() {
           <form className="space-y-3" onSubmit={submit}>
             {mode === "signup" && (
               <div className="space-y-1.5">
-                <Label htmlFor="username">Username (optional)</Label>
-                <Input
-                  id="username"
-                  autoComplete="username"
-                  value={username}
-                  maxLength={40}
-                  onChange={(event) => setUsername(event.target.value)}
-                  placeholder="so you can sign in without your email"
-                />
-              </div>
-            )}
-            {mode === "signup" && (
-              <div className="space-y-1.5">
                 <Label htmlFor="name">Display name</Label>
                 <Input
                   id="name"
@@ -205,23 +134,16 @@ function AuthPage() {
               </div>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="identifier">
-                {mode === "signup" ? "Email" : "Email or username"}
-              </Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="identifier"
-                autoComplete={mode === "signup" ? "email" : "username"}
-                value={identifier}
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
                 maxLength={255}
-                placeholder={mode === "signup" ? "you@example.com" : "you@example.com or username"}
-                onChange={(event) => setIdentifier(event.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 required
               />
-              {mode === "signin" && (
-                <p className="text-[11px] text-muted-foreground">
-                  Either works — your email address or the username set on your account.
-                </p>
-              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
@@ -238,28 +160,13 @@ function AuthPage() {
             <Button type="submit" className="w-full" disabled={busy}>
               {mode === "signup" ? "Create account" : "Sign in"}
             </Button>
-            {mode === "signin" && (
-              <button
-                type="button"
-                className="w-full text-[12px] text-muted-foreground underline-offset-2 hover:underline"
-                disabled={busy}
-                onClick={() => void sendReset()}
-              >
-                Forgot your password?
-              </button>
-            )}
           </form>
 
           <div className="flex items-center gap-2 text-[11px] uppercase text-muted-foreground">
             <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
           </div>
 
-          <Button
-            variant="outline"
-            className="w-full"
-            disabled={busy}
-            onClick={() => void googleSignIn()}
-          >
+          <Button variant="outline" className="w-full" disabled={busy} onClick={() => void googleSignIn()}>
             Continue with Google
           </Button>
         </CardContent>

@@ -22,7 +22,6 @@ export type Database = {
           feature_id: string | null
           id: string
           project_id: string | null
-          source: string
           user_id: string | null
         }
         Insert: {
@@ -32,7 +31,6 @@ export type Database = {
           feature_id?: string | null
           id?: string
           project_id?: string | null
-          source?: string
           user_id?: string | null
         }
         Update: {
@@ -42,65 +40,11 @@ export type Database = {
           feature_id?: string | null
           id?: string
           project_id?: string | null
-          source?: string
           user_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "activity_log_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      app_owners: {
-        Row: {
-          created_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      area_assignment_history: {
-        Row: {
-          action: string
-          actor_id: string | null
-          created_at: string
-          id: string
-          project_id: string
-          user_id: string
-          work_area_id: string
-        }
-        Insert: {
-          action: string
-          actor_id?: string | null
-          created_at?: string
-          id?: string
-          project_id: string
-          user_id: string
-          work_area_id: string
-        }
-        Update: {
-          action?: string
-          actor_id?: string | null
-          created_at?: string
-          id?: string
-          project_id?: string
-          user_id?: string
-          work_area_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "area_assignment_history_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -143,49 +87,31 @@ export type Database = {
       category_fields: {
         Row: {
           category_id: string
-          default_value: string | null
           field_type: Database["public"]["Enums"]["field_type"]
-          help_text: string | null
           id: string
           key: string
           label: string
-          max_length: number | null
-          max_value: number | null
-          min_value: number | null
           options: string[]
-          pattern: string | null
           required: boolean
           sort_order: number
         }
         Insert: {
           category_id: string
-          default_value?: string | null
           field_type?: Database["public"]["Enums"]["field_type"]
-          help_text?: string | null
           id?: string
           key: string
           label: string
-          max_length?: number | null
-          max_value?: number | null
-          min_value?: number | null
           options?: string[]
-          pattern?: string | null
           required?: boolean
           sort_order?: number
         }
         Update: {
           category_id?: string
-          default_value?: string | null
           field_type?: Database["public"]["Enums"]["field_type"]
-          help_text?: string | null
           id?: string
           key?: string
           label?: string
-          max_length?: number | null
-          max_value?: number | null
-          min_value?: number | null
           options?: string[]
-          pattern?: string | null
           required?: boolean
           sort_order?: number
         }
@@ -206,21 +132,13 @@ export type Database = {
           color: string
           created_at: string
           description: string | null
-          display_config: Json
-          editable_by_peers: boolean
-          forbid_self_intersection: boolean
           geometry_type: Database["public"]["Enums"]["geom_type"]
           id: string
-          is_active: boolean
-          max_payload_kb: number
-          max_vertices: number
           name: string
           overlap_severity: string
           project_id: string | null
           require_within_area: boolean
-          require_within_project: boolean
           sort_order: number
-          visible_to_contributors: boolean
         }
         Insert: {
           allow_overlap?: boolean
@@ -228,21 +146,13 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
-          display_config?: Json
-          editable_by_peers?: boolean
-          forbid_self_intersection?: boolean
           geometry_type: Database["public"]["Enums"]["geom_type"]
           id?: string
-          is_active?: boolean
-          max_payload_kb?: number
-          max_vertices?: number
           name: string
           overlap_severity?: string
           project_id?: string | null
           require_within_area?: boolean
-          require_within_project?: boolean
           sort_order?: number
-          visible_to_contributors?: boolean
         }
         Update: {
           allow_overlap?: boolean
@@ -250,21 +160,13 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
-          display_config?: Json
-          editable_by_peers?: boolean
-          forbid_self_intersection?: boolean
           geometry_type?: Database["public"]["Enums"]["geom_type"]
           id?: string
-          is_active?: boolean
-          max_payload_kb?: number
-          max_vertices?: number
           name?: string
           overlap_severity?: string
           project_id?: string | null
           require_within_area?: boolean
-          require_within_project?: boolean
           sort_order?: number
-          visible_to_contributors?: boolean
         }
         Relationships: [
           {
@@ -321,155 +223,53 @@ export type Database = {
           },
         ]
       }
-      feature_versions: {
-        Row: {
-          area_sqm: number
-          attributes: Json
-          category_id: string | null
-          change_kind: string
-          changed_by: string | null
-          created_at: string
-          feature_id: string
-          geometry: Json
-          id: string
-          length_m: number
-          project_id: string
-          review_note: string | null
-          status: Database["public"]["Enums"]["review_status"]
-          version: number
-          work_area_id: string | null
-        }
-        Insert: {
-          area_sqm?: number
-          attributes?: Json
-          category_id?: string | null
-          change_kind: string
-          changed_by?: string | null
-          created_at?: string
-          feature_id: string
-          geometry: Json
-          id?: string
-          length_m?: number
-          project_id: string
-          review_note?: string | null
-          status: Database["public"]["Enums"]["review_status"]
-          version: number
-          work_area_id?: string | null
-        }
-        Update: {
-          area_sqm?: number
-          attributes?: Json
-          category_id?: string | null
-          change_kind?: string
-          changed_by?: string | null
-          created_at?: string
-          feature_id?: string
-          geometry?: Json
-          id?: string
-          length_m?: number
-          project_id?: string
-          review_note?: string | null
-          status?: Database["public"]["Enums"]["review_status"]
-          version?: number
-          work_area_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feature_versions_feature_id_fkey"
-            columns: ["feature_id"]
-            isOneToOne: false
-            referencedRelation: "features"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_versions_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       features: {
         Row: {
           area_sqm: number
           attributes: Json
-          bbox_max_lat: number | null
-          bbox_max_lng: number | null
-          bbox_min_lat: number | null
-          bbox_min_lng: number | null
           category_id: string | null
           created_at: string
           created_by: string | null
           dataset_id: string | null
-          deleted_at: string | null
-          deleted_by: string | null
-          deletion_reason: string | null
           geometry: Json
           id: string
           length_m: number
           project_id: string | null
           review_note: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
           status: Database["public"]["Enums"]["review_status"]
           updated_at: string
-          updated_by: string | null
-          version: number
           work_area_id: string | null
         }
         Insert: {
           area_sqm?: number
           attributes?: Json
-          bbox_max_lat?: number | null
-          bbox_max_lng?: number | null
-          bbox_min_lat?: number | null
-          bbox_min_lng?: number | null
           category_id?: string | null
           created_at?: string
           created_by?: string | null
           dataset_id?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          deletion_reason?: string | null
           geometry: Json
           id?: string
           length_m?: number
           project_id?: string | null
           review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
           status?: Database["public"]["Enums"]["review_status"]
           updated_at?: string
-          updated_by?: string | null
-          version?: number
           work_area_id?: string | null
         }
         Update: {
           area_sqm?: number
           attributes?: Json
-          bbox_max_lat?: number | null
-          bbox_max_lng?: number | null
-          bbox_min_lat?: number | null
-          bbox_min_lng?: number | null
           category_id?: string | null
           created_at?: string
           created_by?: string | null
           dataset_id?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          deletion_reason?: string | null
           geometry?: Json
           id?: string
           length_m?: number
           project_id?: string | null
           review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
           status?: Database["public"]["Enums"]["review_status"]
           updated_at?: string
-          updated_by?: string | null
-          version?: number
           work_area_id?: string | null
         }
         Relationships: [
@@ -574,21 +374,18 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
-          username: string | null
         }
         Insert: {
           created_at?: string
           display_name?: string | null
           email?: string | null
           id: string
-          username?: string | null
         }
         Update: {
           created_at?: string
           display_name?: string | null
           email?: string | null
           id?: string
-          username?: string | null
         }
         Relationships: []
       }
@@ -638,7 +435,6 @@ export type Database = {
           due_date: string | null
           id: string
           name: string
-          owner_id: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["project_status"]
           updated_at: string
@@ -653,7 +449,6 @@ export type Database = {
           due_date?: string | null
           id?: string
           name: string
-          owner_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           updated_at?: string
@@ -668,7 +463,6 @@ export type Database = {
           due_date?: string | null
           id?: string
           name?: string
-          owner_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           updated_at?: string
@@ -703,7 +497,6 @@ export type Database = {
           notes: string | null
           project_id: string
           status: Database["public"]["Enums"]["area_status"]
-          updated_at: string | null
         }
         Insert: {
           boundary: Json
@@ -714,7 +507,6 @@ export type Database = {
           notes?: string | null
           project_id: string
           status?: Database["public"]["Enums"]["area_status"]
-          updated_at?: string | null
         }
         Update: {
           boundary?: Json
@@ -725,7 +517,6 @@ export type Database = {
           notes?: string | null
           project_id?: string
           status?: Database["public"]["Enums"]["area_status"]
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -738,23 +529,92 @@ export type Database = {
         ]
       }
     }
+      clients: {
+        Row: {
+          id: string
+          name: string
+          client_ref: string | null
+          status: string
+          industry: string | null
+          email: string | null
+          phone: string | null
+          address: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          client_ref?: string | null
+          status?: string
+          industry?: string | null
+          email?: string | null
+          phone?: string | null
+          address?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["clients"]["Insert"]>
+        Relationships: []
+      }
+      client_contacts: {
+        Row: {
+          id: string
+          client_id: string
+          name: string
+          job_title: string | null
+          email: string | null
+          phone: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          name: string
+          job_title?: string | null
+          email?: string | null
+          phone?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["client_contacts"]["Insert"]>
+        Relationships: []
+      }
+      project_clients: {
+        Row: {
+          project_id: string
+          client_id: string
+          relationship: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          project_id: string
+          client_id: string
+          relationship?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["project_clients"]["Insert"]>
+        Relationships: []
+      }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      app_rank: { Args: { _user_id: string }; Returns: number }
       can_digitize_in: {
         Args: { _project_id: string; _user_id: string; _work_area_id: string }
-        Returns: boolean
-      }
-      can_edit_feature: {
-        Args: {
-          _category_id: string
-          _created_by: string
-          _project_id: string
-          _user_id: string
-          _work_area_id: string
-        }
         Returns: boolean
       }
       can_manage_project: {
@@ -763,44 +623,6 @@ export type Database = {
       }
       can_review_project: {
         Args: { _project_id: string; _user_id: string }
-        Returns: boolean
-      }
-      dashboard_area_counts: {
-        Args: never
-        Returns: {
-          complete: number
-          in_progress: number
-          not_started: number
-          project_id: string
-          submitted: number
-          total: number
-        }[]
-      }
-      dashboard_contributor_count: { Args: never; Returns: number }
-      dashboard_feature_counts: {
-        Args: { _as_contributor?: boolean }
-        Returns: {
-          approved: number
-          corrections: number
-          drafts: number
-          project_id: string
-          submitted: number
-          total: number
-          under_review: number
-        }[]
-      }
-      geometry_bbox: { Args: { _geom: Json }; Returns: number[] }
-      geometry_matches_type: {
-        Args: { _geom: Json; _kind: Database["public"]["Enums"]["geom_type"] }
-        Returns: boolean
-      }
-      geometry_vertex_count: { Args: { _geom: Json }; Returns: number }
-      geometry_within_boundary: {
-        Args: { _boundary: Json; _geom: Json }
-        Returns: boolean
-      }
-      has_project_permission: {
-        Args: { _permission: string; _project_id: string; _user_id: string }
         Returns: boolean
       }
       has_role: {
@@ -815,46 +637,23 @@ export type Database = {
         Args: { _user_id: string; _work_area_id: string }
         Returns: boolean
       }
-      is_org_manager: { Args: { _user_id: string }; Returns: boolean }
-      is_owner: { Args: { _user_id: string }; Returns: boolean }
-      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
-      is_project_owner: {
-        Args: { _project_id: string; _user_id: string }
-        Returns: boolean
-      }
-      jsonb_coord_pairs: { Args: { _geom: Json }; Returns: number[][] }
-      point_in_ring: {
-        Args: { _lat: number; _lng: number; _ring: Json }
-        Returns: boolean
-      }
-      project_authority: {
-        Args: { _project_id: string; _user_id: string }
-        Returns: number
-      }
-      project_permissions: { Args: { _project_id: string }; Returns: string[] }
       project_role_of: {
         Args: { _project_id: string; _user_id: string }
         Returns: Database["public"]["Enums"]["project_role"]
       }
-      role_rank: {
-        Args: { _role: Database["public"]["Enums"]["project_role"] }
-        Returns: number
-      }
-      shares_project: { Args: { _a: string; _b: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "contributor" | "manager"
+      app_role: "admin" | "contributor"
       area_status:
         | "unassigned"
         | "assigned"
         | "in_progress"
         | "submitted"
         | "complete"
-        | "under_review"
       field_type: "text" | "number" | "boolean" | "select"
       geom_type: "polygon" | "line" | "point"
       project_role: "manager" | "supervisor" | "contributor"
@@ -867,7 +666,6 @@ export type Database = {
         | "on_hold"
         | "completed"
         | "archived"
-        | "planning"
       review_status:
         | "draft"
         | "submitted"
@@ -1001,14 +799,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "contributor", "manager"],
+      app_role: ["admin", "contributor"],
       area_status: [
         "unassigned",
         "assigned",
         "in_progress",
         "submitted",
         "complete",
-        "under_review",
       ],
       field_type: ["text", "number", "boolean", "select"],
       geom_type: ["polygon", "line", "point"],
@@ -1022,7 +819,6 @@ export const Constants = {
         "on_hold",
         "completed",
         "archived",
-        "planning",
       ],
       review_status: [
         "draft",

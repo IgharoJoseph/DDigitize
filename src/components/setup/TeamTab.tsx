@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -16,11 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
-import { useProjectAccess, useProjectAreas } from "@/hooks/useProjectRole";
-import { listAssignableAccounts } from "@/lib/directory.functions";
+import { useProjectAreas } from "@/hooks/useProjectRole";
+import { fetchProfiles, qk } from "@/lib/data";
 import {
   PROJECT_ROLES,
-  ROLE_RANK,
   addMember,
   assignArea,
   fetchAssignments,
@@ -28,24 +26,15 @@ import {
   pk,
   removeMember,
   unassignArea,
-  roleLabel,
   type ProjectRole,
 } from "@/lib/projects";
 
 /** Team list, role assignment, and which work area each contributor owns. */
 export function TeamTab({ projectId }: { projectId: string }) {
   const { user } = useAuth();
-  const { authority, assignableRoles } = useProjectAccess(projectId);
   const queryClient = useQueryClient();
 
-  // Profiles are no longer readable across the whole organisation, so the
-  // candidate list comes from a server function that checks project authority.
-  const directory = useServerFn(listAssignableAccounts);
-  const profilesQuery = useQuery({
-    queryKey: ["assignable-accounts", projectId],
-    queryFn: () => directory({ data: { projectId } }),
-    enabled: authority >= 50,
-  });
+  const profilesQuery = useQuery({ queryKey: qk.profiles, queryFn: fetchProfiles });
   const membersQuery = useQuery({
     queryKey: pk.members(projectId),
     queryFn: () => fetchMembers(projectId),
@@ -65,14 +54,10 @@ export function TeamTab({ projectId }: { projectId: string }) {
     userId: "",
     role: "contributor",
   });
-  const rolesYouCanGrant = PROJECT_ROLES.filter((role) => assignableRoles.includes(role.value));
-  /** You may only change a role that sits below your own authority. */
-  const canChange = (role: ProjectRole) =>
-    rolesYouCanGrant.length > 0 && authority > ROLE_RANK[role];
 
   const name = (id: string | null) => {
     const profile = profiles.find((item) => item.id === id);
-    return profile?.display_name ?? profile?.username ?? "Unknown";
+    return profile?.display_name ?? profile?.email ?? "Unknown";
   };
 
   const refreshTeam = () => {
@@ -111,21 +96,6 @@ export function TeamTab({ projectId }: { projectId: string }) {
     }
   };
 
-  /**
-   * Changing someone's project role. The database refuses a role at or above
-   * your own authority, so the refusal is surfaced rather than swallowed.
-   */
-  const changeRole = async (userId: string, role: ProjectRole) => {
-    if (!user) return;
-    try {
-      await addMember({ projectId, userId, role, addedBy: user.id });
-      refreshTeam();
-      toast.success(`Role changed to ${roleLabel(role)}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "That role change was refused");
-    }
-  };
-
   const notMembers = profiles.filter((profile) => !members.some((m) => m.user_id === profile.id));
 
   return (
@@ -133,8 +103,7 @@ export function TeamTab({ projectId }: { projectId: string }) {
       <div>
         <h2 className="text-base font-semibold tracking-tight">Team &amp; assignments</h2>
         <p className="text-sm text-muted-foreground">
-          Supervisors review work; contributors digitize only inside the areas you give them. You
-          can only add or remove people at a level below your own.
+          Supervisors review work; contributors digitize only inside the areas you give them.
         </p>
       </div>
 
@@ -158,7 +127,7 @@ export function TeamTab({ projectId }: { projectId: string }) {
               <SelectContent>
                 {notMembers.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id}>
-                    {profile.display_name ?? profile.username ?? profile.id}
+                    {profile.display_name ?? profile.email ?? profile.id}
                   </SelectItem>
                 ))}
                 {notMembers.length === 0 && (
@@ -181,7 +150,7 @@ export function TeamTab({ projectId }: { projectId: string }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {rolesYouCanGrant.map((role) => (
+                {PROJECT_ROLES.map((role) => (
                   <SelectItem key={role.value} value={role.value}>
                     {role.label}
                   </SelectItem>
@@ -207,34 +176,13 @@ export function TeamTab({ projectId }: { projectId: string }) {
               <div key={member.id} className="rounded border border-border bg-card/60 p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-medium">{name(member.user_id)}</p>
-                  {canChange(member.role) ? (
-                    <Select
-                      value={member.role}
-                      onValueChange={(value) =>
-                        void changeRole(member.user_id, value as ProjectRole)
-                      }
-                    >
-                      <SelectTrigger className="h-7 w-40 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {rolesYouCanGrant.map((role) => (
-                          <SelectItem key={role.value} value={role.value}>
-                            {role.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Badge variant="outline" className="text-[9px] uppercase">
-                      {roleLabel(member.role)}
-                    </Badge>
-                  )}
+                  <Badge variant="outline" className="text-[9px] uppercase">
+                    {member.role}
+                  </Badge>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="ml-auto h-7 text-xs text-destructive"
-                    disabled={authority <= ROLE_RANK[member.role]}
                     onClick={async () => {
                       try {
                         await removeMember(member.id);

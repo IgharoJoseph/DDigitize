@@ -14,13 +14,9 @@ import {
   fetchCategories,
   fetchFeatures,
   fetchProfiles,
-  fetchRemovedFeatures,
   logActivity,
   qk,
-  restoreFeature,
-  reviewStatusLabel,
   updateFeature,
-  type ReviewStatus,
 } from "@/lib/data";
 import { formatArea, formatLength } from "@/lib/geo";
 
@@ -51,16 +47,7 @@ function ReviewPage() {
   const categories = categoriesQuery.data ?? [];
   const profiles = profilesQuery.data ?? [];
   const areas = areasQuery.data ?? [];
-  // Only submitted work enters the formal queue; drafts stay with their author.
-  const queue = (featuresQuery.data ?? []).filter(
-    (row) => row.status === "submitted" || row.status === "under_review",
-  );
-  const removedQuery = useQuery({
-    queryKey: qk.removedFeatures(projectId),
-    queryFn: () => fetchRemovedFeatures(projectId),
-    enabled: Boolean(user) && access.canManage,
-  });
-  const removed = removedQuery.data ?? [];
+  const queue = (featuresQuery.data ?? []).filter((row) => row.status === "submitted");
 
   if (!access.loading && !access.canReview) {
     return (
@@ -77,52 +64,28 @@ function ReviewPage() {
     return profile?.display_name ?? profile?.email ?? "Unknown";
   };
 
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: qk.features(projectId) });
-    void queryClient.invalidateQueries({ queryKey: qk.activity(projectId) });
-    void queryClient.invalidateQueries({ queryKey: qk.removedFeatures(projectId) });
-  };
-
-  // Submitted work is taken up for review first, then approved or sent back;
-  // the database enforces the same order.
-  const move = async (id: string, next: ReviewStatus) => {
+  const decide = async (id: string, verified: boolean) => {
     const note = notes[id]?.trim() ?? "";
-    if (next === "needs_revision" && note.length < 3) {
+    if (!verified && note.length < 3) {
       toast.error("Leave a short note so the contributor knows what to fix");
       return;
     }
     try {
       await updateFeature(id, {
-        status: next,
-        ...(note ? { reviewNote: note } : {}),
+        status: verified ? "verified" : "needs_revision",
+        reviewNote: note || null,
       });
-      const wording: Record<string, string> = {
-        under_review: "Started reviewing a feature",
-        verified: "Approved a feature",
-        needs_revision: `Requested changes: ${note}`,
-      };
-      await logActivity(projectId, `review.${next}`, wording[next] ?? "Reviewed a feature", id);
-      refresh();
-      toast.success(
-        next === "verified"
-          ? "Approved"
-          : next === "needs_revision"
-            ? "Sent back for changes"
-            : "Review started",
+      await logActivity(
+        projectId,
+        verified ? "verified" : "sent back",
+        verified ? "Verified a feature" : `Sent a feature back: ${note}`,
+        id,
       );
+      void queryClient.invalidateQueries({ queryKey: qk.features(projectId) });
+      void queryClient.invalidateQueries({ queryKey: qk.activity(projectId) });
+      toast.success(verified ? "Marked as verified" : "Sent back for revision");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save that decision");
-    }
-  };
-
-  const restore = async (id: string) => {
-    try {
-      await restoreFeature(id);
-      await logActivity(projectId, "feature.restore", "Restored removed work", id);
-      refresh();
-      toast.success("Restored");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not restore that feature");
     }
   };
 
@@ -157,7 +120,7 @@ function ReviewPage() {
                   </CardDescription>
                 </div>
                 <Badge variant="outline" className="text-[9px] uppercase">
-                  {reviewStatusLabel(row.status)}
+                  submitted
                 </Badge>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -174,32 +137,19 @@ function ReviewPage() {
                 <Textarea
                   className="min-h-16 text-xs"
                   maxLength={600}
-                  placeholder="Note for the contributor (required when asking for changes)"
+                  placeholder="Note for the contributor (required when sending back)"
                   value={notes[row.id] ?? ""}
                   onChange={(event) =>
                     setNotes((current) => ({ ...current, [row.id]: event.target.value }))
                   }
                 />
                 <div className="flex flex-wrap gap-2">
-                  {row.status === "submitted" && (
-                    <Button size="sm" onClick={() => void move(row.id, "under_review")}>
-                      Start review
-                    </Button>
-                  )}
-                  {row.status === "under_review" && (
-                    <>
-                      <Button size="sm" onClick={() => void move(row.id, "verified")}>
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void move(row.id, "needs_revision")}
-                      >
-                        Request changes
-                      </Button>
-                    </>
-                  )}
+                  <Button size="sm" onClick={() => void decide(row.id, true)}>
+                    Verify
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => void decide(row.id, false)}>
+                    Send back
+                  </Button>
                   <Button asChild size="sm" variant="ghost">
                     <Link to="/p/$projectId" params={{ projectId }}>
                       Open on the map
@@ -213,43 +163,6 @@ function ReviewPage() {
 
         {queue.length === 0 && (
           <p className="text-sm text-muted-foreground">Nothing waiting for review right now.</p>
-        )}
-
-        {access.canManage && removed.length > 0 && (
-          <Card className="bg-panel">
-            <CardHeader>
-              <CardTitle className="text-base">Removed work</CardTitle>
-              <CardDescription className="text-xs">
-                Kept on record so nothing disappears without a trace. You can bring any of it back.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {removed.map((row) => (
-                <div
-                  key={row.id}
-                  className="flex flex-wrap items-center gap-2 rounded border border-border bg-card/60 p-2 text-xs"
-                >
-                  <span className="font-medium">
-                    {categories.find((item) => item.id === row.category_id)?.name ??
-                      "Uncategorised"}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {name(row.created_by)} · removed{" "}
-                    {row.deleted_at ? new Date(row.deleted_at).toLocaleString() : "—"} ·{" "}
-                    {row.deletion_reason ?? "no reason given"}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="ml-auto"
-                    onClick={() => void restore(row.id)}
-                  >
-                    Restore
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
         )}
       </div>
     </div>

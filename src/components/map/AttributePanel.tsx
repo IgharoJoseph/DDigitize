@@ -1,17 +1,17 @@
 import { Crosshair, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import type { Attributes, CategoryWithFields, FeatureRow, FeaturePatch, Profile } from "@/lib/data";
+import type {
+  Attributes,
+  CategoryWithFields,
+  FeatureRow,
+  FeaturePatch,
+  Profile,
+  ReviewStatus,
+} from "@/lib/data";
 import { CommentsSection } from "./CommentsSection";
-import { FeatureHistory } from "./FeatureHistory";
-import { featureAttributes, reviewStatusLabel } from "@/lib/data";
-import {
-  formatArea,
-  formatDecimalDegrees,
-  formatLength,
-  geometryCentre,
-  safeLngLat,
-} from "@/lib/geo";
+import { REVIEW_STATUSES, featureAttributes } from "@/lib/data";
+import { formatArea, formatDecimalDegrees, formatLength, geometryCentre, safeLngLat } from "@/lib/geo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,17 +28,17 @@ import type { WorkArea } from "@/lib/projects";
 import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
-  feature: FeatureRow;
-  categories: CategoryWithFields[];
-  profiles: Profile[];
-  canEdit: boolean;
+  feature: FeatureRow
+  categories: CategoryWithFields[]
+  profiles: Profile[]
+  canEdit: boolean
   /** Managers, supervisors and admins may verify work or send it back. */
-  canReview: boolean;
-  workAreas: WorkArea[];
-  onPatch: (patch: FeaturePatch) => void;
-  onDelete: () => void;
-  onClose: () => void;
-  onZoom: () => void;
+  canReview: boolean
+  workAreas: WorkArea[]
+  onPatch: (patch: FeaturePatch) => void
+  onDelete: () => void
+  onClose: () => void
+  onZoom: () => void
 };
 
 export function AttributePanel({
@@ -54,13 +54,11 @@ export function AttributePanel({
   onZoom,
 }: Props) {
   const [draft, setDraft] = useState<Attributes>(featureAttributes(feature));
-  const [note, setNote] = useState(feature.review_note ?? "");
   const category = categories.find((item) => item.id === feature.category_id) ?? null;
 
   useEffect(() => {
     setDraft(featureAttributes(feature));
-    setNote(feature.review_note ?? "");
-  }, [feature.id, feature.updated_at, feature.review_note]);
+  }, [feature.id, feature.updated_at]);
 
   const setValue = (key: string, value: string | number | boolean | null) => {
     const next = { ...draft, [key]: value };
@@ -70,8 +68,6 @@ export function AttributePanel({
 
   const geometry = feature.geometry as unknown as Parameters<typeof geometryCentre>[0];
   const centre = safeLngLat(...geometryCentre(geometry)) ?? [0, 0];
-  const creator = profiles.find((item) => item.id === feature.created_by) ?? null;
-  const creatorName = creator?.display_name ?? creator?.email ?? "Unknown";
   const missingRequired = (category?.fields ?? []).filter((field) => {
     if (!field.required) return false;
     const value = draft[field.key];
@@ -86,22 +82,10 @@ export function AttributePanel({
           style={{ backgroundColor: category?.color ?? "#94a3b8" }}
         />
         <h2 className="truncate text-sm font-semibold">{category?.name ?? "Uncategorised"}</h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="ml-auto size-7"
-          onClick={onZoom}
-          aria-label="Zoom to feature"
-        >
+        <Button variant="ghost" size="icon" className="ml-auto size-7" onClick={onZoom} aria-label="Zoom to feature">
           <Crosshair className="size-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          onClick={onClose}
-          aria-label="Close attributes"
-        >
+        <Button variant="ghost" size="icon" className="size-7" onClick={onClose} aria-label="Close attributes">
           <X className="size-4" />
         </Button>
       </div>
@@ -119,20 +103,12 @@ export function AttributePanel({
             <dd className="text-foreground">
               {workAreas.find((area) => area.id === feature.work_area_id)?.name ?? "—"}
             </dd>
-            <dt>Digitized by</dt>
-            <dd className="text-foreground">{creatorName}</dd>
-            <dt>Created</dt>
-            <dd className="text-foreground">{new Date(feature.created_at).toLocaleString()}</dd>
             <dt>Updated</dt>
             <dd className="text-foreground">{new Date(feature.updated_at).toLocaleString()}</dd>
-            <dt>Version</dt>
-            <dd className="text-foreground">{feature.version ?? 1}</dd>
           </dl>
 
           <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-              Category
-            </Label>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Category</Label>
             <Select
               value={feature.category_id ?? ""}
               disabled={!canEdit}
@@ -173,7 +149,7 @@ export function AttributePanel({
                     <Input
                       className="h-8 text-xs"
                       disabled={!canEdit}
-                      maxLength={field.max_length ?? 240}
+                      maxLength={240}
                       value={value === null || value === undefined ? "" : String(value)}
                       onChange={(event) => setValue(field.key, event.target.value)}
                     />
@@ -184,8 +160,6 @@ export function AttributePanel({
                       className="h-8 text-xs"
                       type="number"
                       disabled={!canEdit}
-                      {...(field.min_value === null ? {} : { min: Number(field.min_value) })}
-                      {...(field.max_value === null ? {} : { max: Number(field.max_value) })}
                       value={value === null || value === undefined ? "" : String(value)}
                       onChange={(event) =>
                         setValue(
@@ -224,17 +198,6 @@ export function AttributePanel({
                       </SelectContent>
                     </Select>
                   )}
-
-                  {/* Guidance and the accepted range, as configured on the layer. */}
-                  {field.help_text && (
-                    <p className="text-[10px] text-muted-foreground">{field.help_text}</p>
-                  )}
-                  {field.field_type === "number" &&
-                    (field.min_value !== null || field.max_value !== null) && (
-                      <p className="text-[10px] text-muted-foreground">
-                        Allowed range: {field.min_value ?? "any"} to {field.max_value ?? "any"}
-                      </p>
-                    )}
                 </div>
               );
             })}
@@ -246,111 +209,65 @@ export function AttributePanel({
             </p>
           )}
 
-          {/* Workflow: draft -> submitted -> under review -> approved, with a
-              correction loop. The steps follow the same order the database
-              enforces, so the buttons can never offer an invalid move. */}
-          <div className="space-y-2 rounded border border-border bg-card/60 p-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Workflow
-              </Label>
-              <span className="text-xs font-medium text-foreground">
-                {reviewStatusLabel(feature.status)}
-              </span>
-            </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Review status
+            </Label>
+            <Select
+              value={feature.status}
+              disabled={!canEdit}
+              onValueChange={(value) => onPatch({ status: value as ReviewStatus })}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REVIEW_STATUSES.map((status) => (
+                  <SelectItem
+                    key={status.value}
+                    value={status.value}
+                    disabled={
+                      !canReview &&
+                      (status.value === "verified" || status.value === "needs_revision")
+                    }
+                  >
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            {canReview && (
+          {canReview && (
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Reviewer note
+              </Label>
               <Textarea
                 className="min-h-16 text-xs"
                 maxLength={600}
-                placeholder="Note for the person who digitized this"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
+                defaultValue={feature.review_note ?? ""}
+                onBlur={(event) => onPatch({ reviewNote: event.target.value })}
               />
-            )}
-
-            {!canReview && feature.review_note && (
-              <p className="text-[11px] text-muted-foreground">
-                Reviewer note: {feature.review_note}
-              </p>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {canEdit && (feature.status === "draft" || feature.status === "needs_revision") && (
-                <Button
-                  size="sm"
-                  className="flex-1"
-                  disabled={missingRequired.length > 0}
-                  onClick={() => onPatch({ status: "submitted" })}
-                >
-                  Submit for review
-                </Button>
-              )}
-
-              {canEdit && !canReview && feature.status === "submitted" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => onPatch({ status: "draft" })}
-                >
-                  Withdraw to draft
-                </Button>
-              )}
-
-              {canReview && feature.status === "submitted" && (
-                <Button
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onPatch({ status: "under_review" })}
-                >
-                  Start review
-                </Button>
-              )}
-
-              {canReview && feature.status === "under_review" && (
-                <>
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={() =>
-                      onPatch({ status: "verified", ...(note.trim() ? { reviewNote: note } : {}) })
-                    }
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1"
-                    disabled={note.trim().length < 3}
-                    onClick={() => onPatch({ status: "needs_revision", reviewNote: note.trim() })}
-                  >
-                    Request changes
-                  </Button>
-                </>
-              )}
-
-              {canReview && feature.status === "verified" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => onPatch({ status: "under_review" })}
-                >
-                  Reopen for revision
-                </Button>
-              )}
             </div>
+          )}
 
-            {feature.status === "submitted" && !canReview && (
-              <p className="text-[11px] text-muted-foreground">
-                Submitted and waiting for a reviewer.
-              </p>
-            )}
-          </div>
+          {!canReview && feature.review_note && (
+            <p className="rounded border border-border bg-card/60 p-2 text-[11px] text-muted-foreground">
+              Reviewer note: {feature.review_note}
+            </p>
+          )}
 
-          <FeatureHistory featureId={feature.id} profiles={profiles} />
+          {canEdit && (feature.status === "draft" || feature.status === "needs_revision") && (
+            <Button
+              size="sm"
+              className="w-full"
+              disabled={missingRequired.length > 0}
+              onClick={() => onPatch({ status: "submitted" })}
+            >
+              Submit for review
+            </Button>
+          )}
 
           <CommentsSection
             projectId={feature.project_id ?? ""}
@@ -360,13 +277,8 @@ export function AttributePanel({
           />
 
           {canEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-destructive"
-              onClick={onDelete}
-            >
-              <Trash2 className="mr-1.5 size-3.5" /> Remove feature
+            <Button variant="outline" size="sm" className="w-full text-destructive" onClick={onDelete}>
+              <Trash2 className="mr-1.5 size-3.5" /> Delete feature
             </Button>
           )}
 

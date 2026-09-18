@@ -14,6 +14,7 @@ import { AppSidebar } from "../components/AppSidebar";
 import { TopBar } from "../components/TopBar";
 import { Toaster } from "../components/ui/sonner";
 import { AuthProvider } from "../hooks/useAuth";
+import { RoleSimulationProvider } from "../hooks/useRoleSimulation";
 import { reportAppError } from "../lib/error-reporting";
 
 function NotFoundComponent() {
@@ -81,13 +82,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "DDigitize — collaborative drone imagery digitizing" },
+      { title: "DroneTrace — collaborative drone imagery digitizing" },
       {
         name: "description",
         content:
           "Digitize buildings, roads and parcels from high-resolution drone imagery with a shared attribute schema.",
       },
-      { property: "og:title", content: "DDigitize" },
+      { property: "og:title", content: "DroneTrace" },
       {
         property: "og:description",
         content: "Collaborative drone imagery digitizing on MapLibre and PMTiles.",
@@ -129,6 +130,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <RoleSimulationProvider>
         <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
           <TopBar />
           <div className="flex min-h-0 flex-1">
@@ -138,6 +140,7 @@ function RootComponent() {
           </div>
         </div>
         <Toaster position="top-right" />
+        </RoleSimulationProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

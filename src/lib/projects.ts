@@ -16,34 +16,12 @@ export type ProjectStatus = Database["public"]["Enums"]["project_status"];
 export type AreaStatus = Database["public"]["Enums"]["area_status"];
 
 /** Effective role of the signed-in person for one project. */
-export type EffectiveRole = "system_admin" | "org_manager" | "owner" | ProjectRole | "none";
-
-/** Plain names for every level, used wherever a role is shown. */
-export const ROLE_LABELS: Record<EffectiveRole, string> = {
-  system_admin: "System administrator",
-  org_manager: "Manager",
-  owner: "Project owner",
-  manager: "Project manager",
-  supervisor: "Supervisor",
-  contributor: "Contributor",
-  none: "No access",
-};
-
-export function roleLabel(role: EffectiveRole | null | undefined): string {
-  return role ? (ROLE_LABELS[role] ?? role) : "No access";
-}
-
-/** Authority of each project role; you may only act on roles below your own. */
-export const ROLE_RANK: Record<ProjectRole, number> = {
-  manager: 50,
-  supervisor: 30,
-  contributor: 10,
-};
+export type EffectiveRole = "admin" | ProjectRole | "none";
 
 export const PROJECT_ROLES: { value: ProjectRole; label: string; blurb: string }[] = [
   {
     value: "manager",
-    label: "Project manager",
+    label: "Manager",
     blurb: "Sets up feature layers, imagery, work areas and the team. Reviews work.",
   },
   {
@@ -59,7 +37,6 @@ export const PROJECT_ROLES: { value: ProjectRole; label: string; blurb: string }
 ];
 
 export const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
-  { value: "planning", label: "Planning" },
   { value: "draft", label: "Draft" },
   { value: "setup", label: "Setup" },
   { value: "active", label: "Active" },
@@ -75,8 +52,7 @@ export const AREA_STATUSES: { value: AreaStatus; label: string }[] = [
   { value: "assigned", label: "Assigned" },
   { value: "in_progress", label: "In progress" },
   { value: "submitted", label: "Submitted" },
-  { value: "under_review", label: "Under review" },
-  { value: "complete", label: "Completed" },
+  { value: "complete", label: "Complete" },
 ];
 
 export const pk = {
@@ -85,7 +61,6 @@ export const pk = {
   myMemberships: ["my-memberships"] as const,
   areas: (projectId: string) => ["work-areas", projectId] as const,
   assignments: (projectId: string) => ["area-assignments", projectId] as const,
-  assignmentHistory: (projectId: string) => ["assignment-history", projectId] as const,
 };
 
 function unwrap<T>(result: { data: T; error: { message: string } | null }): NonNullable<T> {
@@ -107,15 +82,13 @@ export async function fetchProjects(): Promise<Project[]> {
 }
 
 export async function fetchProject(projectId: string): Promise<Project | null> {
-  return unwrapNullable(
-    await supabase.from("projects").select("*").eq("id", projectId).maybeSingle(),
-  );
+  return unwrapNullable(await supabase.from("projects").select("*").eq("id", projectId).maybeSingle());
 }
 
 export async function createProject(input: {
-  name: string;
-  description: string | null;
-  createdBy: string;
+  name: string
+  description: string | null
+  createdBy: string
 }): Promise<Project> {
   const project = unwrap(
     await supabase
@@ -125,26 +98,20 @@ export async function createProject(input: {
       .single(),
   );
   // The creator joins as manager so they can set the project up straight away.
-  await supabase.from("project_members").insert({
-    project_id: project.id,
-    user_id: input.createdBy,
-    role: "manager",
-    added_by: input.createdBy,
-  });
+  await supabase
+    .from("project_members")
+    .insert({
+      project_id: project.id,
+      user_id: input.createdBy,
+      role: "manager",
+      added_by: input.createdBy,
+    });
   return project;
 }
 
 export async function updateProject(
   projectId: string,
-  patch: {
-    name?: string;
-    description?: string | null;
-    status?: ProjectStatus;
-    client_ref?: string | null;
-    crs?: string;
-    start_date?: string | null;
-    due_date?: string | null;
-  },
+  patch: { name?: string; description?: string | null; status?: ProjectStatus },
 ): Promise<Project> {
   return unwrap(
     await supabase.from("projects").update(patch).eq("id", projectId).select("*").single(),
@@ -159,20 +126,24 @@ export async function deleteProject(projectId: string) {
 /* -------------------------------- members -------------------------------- */
 
 export async function fetchMembers(projectId: string): Promise<ProjectMember[]> {
-  return unwrap(await supabase.from("project_members").select("*").eq("project_id", projectId));
+  return unwrap(
+    await supabase.from("project_members").select("*").eq("project_id", projectId),
+  );
 }
 
 export async function fetchMyMemberships(): Promise<ProjectMember[]> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return [];
-  return unwrap(await supabase.from("project_members").select("*").eq("user_id", auth.user.id));
+  return unwrap(
+    await supabase.from("project_members").select("*").eq("user_id", auth.user.id),
+  );
 }
 
 export async function addMember(input: {
-  projectId: string;
-  userId: string;
-  role: ProjectRole;
-  addedBy: string;
+  projectId: string
+  userId: string
+  role: ProjectRole
+  addedBy: string
 }): Promise<ProjectMember> {
   return unwrap(
     await supabase
@@ -191,20 +162,9 @@ export async function addMember(input: {
   );
 }
 
-/**
- * Removing a member is refused by the database when the person is at or above
- * your own authority. A refused delete returns no error and no rows, so the
- * returned rows are checked here — otherwise a blocked removal looked like it
- * had worked while the person kept their access.
- */
 export async function removeMember(id: string) {
-  const { data, error } = await supabase.from("project_members").delete().eq("id", id).select("id");
+  const { error } = await supabase.from("project_members").delete().eq("id", id);
   if (error) throw new Error(error.message);
-  if (!data || data.length === 0) {
-    throw new Error(
-      "That person was not removed: you can only remove people below your own level, and never the platform owner.",
-    );
-  }
 }
 
 /* ------------------------------- work areas ------------------------------ */
@@ -216,11 +176,11 @@ export async function fetchWorkAreas(projectId: string): Promise<WorkArea[]> {
 }
 
 export async function createWorkArea(input: {
-  projectId: string;
-  name: string;
-  boundary: Polygon;
-  notes?: string | null;
-  createdBy: string;
+  projectId: string
+  name: string
+  boundary: Polygon
+  notes?: string | null
+  createdBy: string
 }): Promise<WorkArea> {
   return unwrap(
     await supabase
@@ -249,20 +209,6 @@ export async function deleteWorkArea(id: string) {
   if (error) throw new Error(error.message);
 }
 
-/** Every assign / unassign event, newest first. Written by the database. */
-export type AssignmentHistoryRow = Database["public"]["Tables"]["area_assignment_history"]["Row"];
-
-export async function fetchAssignmentHistory(projectId: string): Promise<AssignmentHistoryRow[]> {
-  return unwrap(
-    await supabase
-      .from("area_assignment_history")
-      .select("*")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: false })
-      .limit(300),
-  );
-}
-
 export function areaBoundary(area: WorkArea): Polygon {
   return area.boundary as unknown as Polygon;
 }
@@ -284,9 +230,9 @@ export async function fetchAssignments(projectId: string): Promise<AreaAssignmen
 }
 
 export async function assignArea(input: {
-  workAreaId: string;
-  userId: string;
-  assignedBy: string;
+  workAreaId: string
+  userId: string
+  assignedBy: string
 }): Promise<AreaAssignment> {
   const row = unwrap(
     await supabase
@@ -303,15 +249,8 @@ export async function assignArea(input: {
 }
 
 export async function unassignArea(id: string) {
-  const { data, error } = await supabase
-    .from("area_assignments")
-    .delete()
-    .eq("id", id)
-    .select("id");
+  const { error } = await supabase.from("area_assignments").delete().eq("id", id);
   if (error) throw new Error(error.message);
-  if (!data || data.length === 0) {
-    throw new Error("That assignment was not removed: you do not have permission to change it.");
-  }
 }
 
 /* --------------------------- containment helpers -------------------------- */

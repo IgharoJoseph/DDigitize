@@ -6,19 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchOverview, noAreaCounts, noFeatureCounts, ok } from "@/lib/overview";
-import { fetchProjects, pk } from "@/lib/projects";
+import { useRoleSimulation } from "@/hooks/useRoleSimulation";
+import { areaProgress, countByStatus, fetchOverview, ok } from "@/lib/overview";
+import { fetchMyMemberships, fetchProjects, pk } from "@/lib/projects";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Production dashboard — DDigitize" },
+      { title: "Production dashboard — DroneTrace" },
       {
         name: "description",
         content:
           "Live production status across all mapping projects: work-area completion, features awaiting QA and approved output.",
       },
-      { property: "og:title", content: "DDigitize production dashboard" },
+      { property: "og:title", content: "DroneTrace production dashboard" },
       {
         property: "og:description",
         content: "Track digitising progress, QA queues and contributor output per project.",
@@ -29,17 +30,22 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardPage() {
-  const { user, loading, previewRole } = useAuth();
-  const asContributor = previewRole === "contributor";
+  const { user, isAdmin, loading } = useAuth();
+  const { activeRole, isSimulating } = useRoleSimulation();
 
   const overviewQuery = useQuery({
-    queryKey: [...ok.overview, asContributor] as const,
-    queryFn: () => fetchOverview(asContributor),
+    queryKey: ok.overview,
+    queryFn: fetchOverview,
     enabled: Boolean(user),
   });
   const projectsQuery = useQuery({
     queryKey: pk.projects,
     queryFn: fetchProjects,
+    enabled: Boolean(user),
+  });
+  const membershipsQuery = useQuery({
+    queryKey: pk.myMemberships,
+    queryFn: fetchMyMemberships,
     enabled: Boolean(user),
   });
 
@@ -57,27 +63,52 @@ function DashboardPage() {
   }
 
   const projects = projectsQuery.data ?? [];
-  const featuresByProject = overviewQuery.data?.featuresByProject ?? {};
-  const areasByProject = overviewQuery.data?.areasByProject ?? {};
+  const memberships = membershipsQuery.data ?? [];
+  const features = overviewQuery.data?.features ?? [];
+  const areas = overviewQuery.data?.areas ?? [];
+  const members = overviewQuery.data?.members ?? [];
 
-  // Totals come from database aggregates, already scoped: reviewers see the
-  // whole project, contributors only their own features.
-  const counts = overviewQuery.data?.featureTotals ?? noFeatureCounts();
-  const contributors = overviewQuery.data?.contributors ?? 0;
-  const activeProjects = projects.filter((p) => p.status === "active" || p.status === "review");
+  const role = isAdmin && isSimulating ? activeRole : "admin";
+  const visibleProjects = projects.filter((project) => {
+    if (!isSimulating || !isAdmin) {
+      return true;
+    }
+    if (role === "project_owner") return project.created_by === user?.id;
+    const membership = memberships.find((m) => m.project_id === project.id);
+    if (role === "manager") return membership?.role === "manager";
+    if (role === "supervisor") return membership?.role === "supervisor";
+    if (role === "contributor") return Boolean(membership && membership.role === "contributor");
+    return true;
+  });
+
+  const visibleProjectIds = new Set(visibleProjects.map((p) => p.id));
+  const scoped = features.filter((f) => {
+    if (!f.project_id || !visibleProjectIds.has(f.project_id)) return false;
+    if (!isSimulating || role !== "contributor") return true;
+    return f.created_by === user?.id;
+  });
+  const counts = countByStatus(scoped);
+  const contributors = new Set(
+    members
+      .filter((m) => visibleProjectIds.has(m.project_id) && m.role === "contributor")
+      .map((m) => m.user_id),
+  ).size;
+  const activeProjects = visibleProjects.filter((p) => p.status === "active" || p.status === "review");
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-6xl space-y-5 px-4 py-5">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Production dashboard</h1>
+          <h1 className="text-lg font-semibold tracking-tight">{isSimulating ? `${activeRole === "project_owner" ? "Project Owner" : activeRole.charAt(0).toUpperCase() + activeRole.slice(1)} dashboard` : "Platform dashboard"}</h1>
           <p className="text-sm text-muted-foreground">
-            Digitising and QA status across the projects you have access to.
+            {isSimulating
+              ? "Previewing the workspace, project visibility and controls available to this role."
+              : "Platform-wide production status across projects, teams and QA."}
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-          <Stat label="Projects" value={projects.length} />
+          <Stat label="Projects" value={visibleProjects.length} />
           <Stat label="Active" value={activeProjects.length} />
           <Stat label="Contributors" value={contributors} />
           <Stat label="Features" value={counts.total} />
@@ -91,12 +122,14 @@ function DashboardPage() {
             <CardTitle className="text-sm">Project progress</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {projects.length === 0 && (
-              <p className="text-sm text-muted-foreground">No projects yet.</p>
+            {visibleProjects.length === 0 && (
+              <p className="text-sm text-muted-foreground">No projects visible in this role.</p>
             )}
-            {projects.map((project) => {
-              const ap = areasByProject[project.id] ?? noAreaCounts();
-              const fc = featuresByProject[project.id] ?? noFeatureCounts();
+            {visibleProjects.map((project) => {
+              const projectAreas = areas.filter((a) => a.project_id === project.id);
+              const projectFeatures = features.filter((f) => f.project_id === project.id);
+              const ap = areaProgress(projectAreas);
+              const fc = countByStatus(projectFeatures);
               return (
                 <div key={project.id} className="rounded border border-border p-3">
                   <div className="flex flex-wrap items-center gap-2">
@@ -129,8 +162,29 @@ function DashboardPage() {
             })}
           </CardContent>
         </Card>
+
+        {isAdmin && !isSimulating && (
+          <Card className="bg-panel">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Platform administration</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-2 sm:grid-cols-2">
+              <AdminLink to="/audit" title="Audit log" description="Review system activity and security events." />
+              <AdminLink to="/export" title="Data exports" description="Access authorised project exports." />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
+  );
+}
+
+function AdminLink({ to, title, description }: { to: "/audit" | "/export"; title: string; description: string }) {
+  return (
+    <Link to={to} className="rounded border border-border p-3 transition-colors hover:bg-secondary">
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+    </Link>
   );
 }
 
