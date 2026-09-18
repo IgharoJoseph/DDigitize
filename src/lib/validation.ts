@@ -67,7 +67,15 @@ export function validateFeature(input: {
   if (input.restrictedToAssignments) {
     const inside = input.containingArea && input.assignedAreaIds.includes(input.containingArea.id);
     if (!inside) {
-      issues.push({ severity: "error", message: "Outside assigned work area" });
+      // Saying "outside your area" is confusing when no area exists or none is
+      // yours yet, so the reason is spelled out instead.
+      const message =
+        input.areas.length === 0
+          ? "This project has no work areas yet. A manager needs to create one and assign it to you before you can digitize."
+          : input.assignedAreaIds.length === 0
+            ? "No work area is assigned to you yet. Ask a manager or supervisor to assign one."
+            : "Outside assigned work area";
+      issues.push({ severity: "error", message });
     }
   } else if (category?.require_within_area && input.areas.length > 0 && !input.containingArea) {
     issues.push({
